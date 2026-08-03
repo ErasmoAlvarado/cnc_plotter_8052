@@ -10,7 +10,7 @@ un dibujo y le das play. Lo subo por si a alguien le sirve de referencia para al
 
 ## Qué hace
 
-- Dibuja archivos G-code (líneas y arcos) en un área de trabajo de 40x40 mm.
+- Dibuja archivos G-code (líneas y arcos) en un área de trabajo de 100x100 mm.
 - Mueve 2 motores paso a paso para los ejes X/Y y uno más para subir/bajar la pluma (eje Z).
 - Habla con el microcontrolador por serial (USB), con un protocolo binario propio.
 - Tiene un wizard de calibración desde el navegador (pasos por mm, backlash, profundidad
