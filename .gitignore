@@ -25,6 +25,9 @@ pnpm-debug.log*
 !.vscode/extensions.json
 .idea/
 
+# --- Claude Code ---
+CLAUDE.md
+
 # --- OS ---
 .DS_Store
 Thumbs.db

@@ -131,8 +131,8 @@ cd python
 pytest
 ```
 
-Cubren el parser de G-code, las transformaciones (espejo, ajuste al área) y los límites
-de software.
+Cubren el recorrido/interpretación del G-code (`gcode_walk`), las transformaciones (espejo,
+ajuste al área) y los límites de software.
 
 ## Notas / limitaciones
 
