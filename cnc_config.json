@@ -1,0 +1,19 @@
+{
+  "steps_per_mm_x": 170.67,
+  "steps_per_mm_y": 170.67,
+  "steps_per_mm_z": 100.0,
+  "backlash_x": 0,
+  "backlash_y": 0,
+  "max_x_mm": 40.0,
+  "max_y_mm": 40.0,
+  "speed_draw": 5,
+  "speed_rapid": 6,
+  "speed_z": 8,
+  "pen_steps": 100,
+  "z_pen_down_threshold": 0.0,
+  "pen_invert": false,
+  "invert_x": false,
+  "invert_y": true,
+  "enforce_soft_limits": true,
+  "last_calibration_date": null
+}

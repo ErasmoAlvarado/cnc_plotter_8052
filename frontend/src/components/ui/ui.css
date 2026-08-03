@@ -1,0 +1,805 @@
+/* ui.css — estilos de las primitivas (components/ui/*).
+ * Nada de aca sabe nada del plotter: son piezas de interfaz reutilizables.
+ *
+ * Principio que ordena todo el archivo: lo que se PULSA esta elevado (superficie
+ * clara, borde definido), lo que se ESCRIBE esta hundido (--recess, sombra
+ * interior). Es la unica pista de affordance que hace falta, y evita tener que
+ * pintar los controles de colores para diferenciarlos.
+ */
+
+.icon {
+  display: block;
+  flex: none;
+  color: inherit;
+}
+
+/* ── Button ──────────────────────────────────────────────────────
+ * Sin degradados, sin halos, sin reflejo en el canto. Un boton es un
+ * rectangulo con un borde que reacciona: se aclara al pasar por encima y se
+ * hunde 1px al pulsar. Nada mas.
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  font: var(--t-body);
+  font-weight: 500;
+  letter-spacing: var(--tr-body);
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
+}
+
+/* El hundido de la pulsacion ya no vive aca: lo hace motion con whileTap desde
+ * Button.jsx, que escribe `transform` en el estilo inline y ganaria a esta
+ * regla de todos modos. Se anima la escala y no un translateY porque el boton
+ * se hunde HACIA la pantalla, no hacia abajo. */
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Tamanos. Tres, y ninguno tactil: esta app se usa con raton. */
+.btn--sm {
+  min-height: var(--h-sm);
+  padding: 0 var(--sp-2);
+  font: var(--t-label);
+  border-radius: var(--r-sm);
+}
+.btn--md {
+  min-height: var(--h-md);
+  padding: 0 var(--sp-3);
+}
+.btn--lg {
+  min-height: var(--h-lg);
+  padding: 0 var(--sp-4);
+  font-weight: 600;
+}
+
+.btn--block {
+  display: flex;
+  width: 100%;
+}
+
+.btn--icon-only {
+  padding: 0;
+  aspect-ratio: 1;
+}
+
+/* primary: el unico control de la pantalla que lleva el acento de fondo. */
+.btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.btn--primary:active:not(:disabled) {
+  background: var(--accent-press);
+}
+
+/* secondary: la piel por defecto. */
+.btn--secondary {
+  background: var(--surface-2);
+  color: var(--text-1);
+  border-color: var(--line);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+}
+
+/* Estado activo de un boton que representa una POSICION, no una accion:
+ * "Subir"/"Bajar" de la pluma. Marcarlo con el acento de fondo lleno haria que
+ * el estado actual pareciera la accion recomendada, que es justo lo contrario.
+ * Va acentuado pero tenue. */
+.btn--secondary.btn--active {
+  background: var(--accent-weak);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn--danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.btn--danger-soft {
+  background: var(--danger-weak);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+}
+.btn--danger-soft:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* Envoltorio del icono. Existe solo para que AnimatePresence tenga un elemento
+ * al que agarrarse en el cruce icono <-> spinner; `display: flex` evita que el
+ * SVG arrastre el interlineado de la linea base. */
+.btn__icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.btn__spinner {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 650ms linear infinite;
+}
+
+/* Boton circular de solo icono (cerrar, tema, ajustes). */
+.icon-btn {
+  width: var(--h-md);
+  height: var(--h-md);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Panel ─────────────────────────────────────────────────────── */
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  min-height: 34px;
+}
+
+.panel__title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.panel__body {
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.panel--flush > .panel__body {
+  padding: 0;
+}
+
+/* ── DisabledHint ────────────────────────────────────────────────
+ * El bloque no desaparece: se apaga y dice por que. Sin filtro de saturacion
+ * (ya casi no hay color que desaturar) — basta con bajar la opacidad. */
+.disabled-wrap {
+  display: contents;
+}
+
+.disabled-wrap--off > .disabled-wrap__body {
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+.disabled-wrap__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.disabled-wrap__reason {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-2);
+  font: var(--t-label);
+}
+
+.disabled-wrap__reason .icon {
+  color: var(--text-3);
+}
+
+/* ── SegmentedControl ────────────────────────────────────────────
+ * Riel hundido + una pastilla elevada. La seleccionada es la unica que tiene
+ * superficie propia; no hace falta tenirla de azul para que se vea cual es. */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--recess);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  width: 100%;
+}
+
+.segmented__option {
+  position: relative;
+  flex: 1;
+  min-height: 24px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font: var(--t-label);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+/* El fondo de la opcion activa. Es un elemento propio y no el `background` del
+ * boton porque asi puede viajar entre opciones con layoutId — ver
+ * SegmentedControl.jsx. Va detras del texto, nunca encima. */
+.segmented__thumb {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-raised);
+}
+
+.segmented__content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.segmented__option:hover:not(:disabled):not([aria-selected='true']) {
+  color: var(--text-1);
+}
+
+.segmented__option[aria-selected='true'] {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.segmented__option:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.segmented--lg .segmented__option {
+  min-height: 28px;
+  font: var(--t-body);
+}
+
+/* ── Toggle ──────────────────────────────────────────────────────
+ * Encendido = acento, no verde. El verde de esta app significa "la maquina
+ * responde" y solo lo lleva el LED de conexion. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+  font: var(--t-body);
+}
+
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle__track {
+  width: 34px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
+  padding: 2px;
+  flex: none;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.toggle__knob {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.toggle input:checked + .toggle__track {
+  background: var(--accent);
+}
+
+.toggle input:checked + .toggle__track .toggle__knob {
+  transform: translateX(14px);
+}
+
+.toggle input:focus-visible + .toggle__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toggle--off {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Stepper + Field ─────────────────────────────────────────── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.stepper__input {
+  width: 72px;
+  min-height: var(--h-md);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--recess);
+  box-shadow: var(--shadow-inset);
+  color: var(--text-1);
+  font: var(--t-metric);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding: 0 4px;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.stepper__input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.stepper__btn {
+  width: var(--h-md);
+  height: var(--h-md);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+
+.stepper__btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+.stepper__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stepper__suffix {
+  font: var(--t-label);
+  color: var(--text-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field__label {
+  font: var(--t-label);
+  color: var(--text-2);
+}
+
+.field__error {
+  color: var(--danger);
+}
+
+.field__input {
+  min-height: var(--h-md);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--recess);
+  box-shadow: var(--shadow-inset);
+  color: var(--text-1);
+  font: var(--t-body);
+  font-variant-numeric: tabular-nums;
+  padding: 0 var(--sp-2);
+  width: 100%;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.field__input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+input[type='number'].field__input,
+input[type='number'].stepper__input {
+  font-family: var(--font-mono);
+}
+
+/* Las flechas nativas del number sobran: el Stepper ya pone las suyas, mucho
+ * mas grandes que un triangulo de 6px. */
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+select.field__input {
+  appearance: none;
+  cursor: pointer;
+  padding-right: var(--sp-6);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-2) 50%),
+    linear-gradient(135deg, var(--text-2) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 50%, calc(100% - 11px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+/* ── Banner ──────────────────────────────────────────────────────
+ * Fondo tenue del color del estado y una linea de 2px a la izquierda. Sin
+ * parpadeos: un aviso que late es un aviso que se ignora a los diez minutos. */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  border-left-width: 2px;
+  font: var(--t-label);
+  color: var(--text-1);
+  background: var(--surface-2);
+}
+
+.banner > .icon {
+  margin-top: 1px;
+  color: var(--text-2);
+}
+
+.banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner__title {
+  font: var(--t-body);
+  font-weight: 600;
+  letter-spacing: var(--tr-body);
+  margin-bottom: 2px;
+}
+
+.banner--info {
+  border-left-color: var(--accent);
+}
+.banner--info > .icon {
+  color: var(--accent);
+}
+
+.banner--success {
+  border-left-color: var(--ok);
+}
+.banner--success > .icon {
+  color: var(--ok);
+}
+
+.banner--warn {
+  background: var(--warn-weak);
+  border-color: color-mix(in srgb, var(--warn) 22%, transparent);
+  border-left-color: var(--warn);
+}
+.banner--warn > .icon {
+  color: var(--warn);
+}
+
+.banner--error {
+  background: var(--danger-weak);
+  border-color: color-mix(in srgb, var(--danger) 26%, transparent);
+  border-left-color: var(--danger);
+}
+.banner--error > .icon {
+  color: var(--danger);
+}
+
+.banner__close {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 1px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+}
+
+.banner__close:hover {
+  color: var(--text-1);
+}
+
+/* ── Overlays (Radix) ────────────────────────────────────────────
+ * Todo lo que flota de verdad vive aca, y es lo unico que conserva material
+ * translucido y sombra grande: son las dos senales de "esto esta por encima del
+ * contenido". */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.sheet,
+.alert {
+  position: fixed;
+  z-index: 101;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  background: var(--overlay-surface);
+  backdrop-filter: var(--overlay-blur);
+  -webkit-backdrop-filter: var(--overlay-blur);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  max-height: min(86vh, 860px);
+  overflow: hidden;
+}
+
+.sheet {
+  width: min(620px, calc(100vw - var(--sp-8)));
+}
+
+.sheet--lg {
+  width: min(860px, calc(100vw - var(--sp-8)));
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+
+.sheet__title {
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet__description {
+  padding: var(--sp-3) var(--sp-5) 0;
+  margin: 0;
+  font: var(--t-label);
+  color: var(--text-2);
+  flex: none;
+}
+
+.sheet__body {
+  overflow-y: auto;
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.sheet__footer {
+  flex: none;
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+  background: var(--surface-1);
+}
+
+/* ── ConfirmDialog ─────────────────────────────────────────────── */
+.alert {
+  width: min(400px, calc(100vw - var(--sp-8)));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+}
+
+.alert__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--warn-weak);
+  color: var(--warn);
+  flex: none;
+}
+
+.alert__icon--danger {
+  background: var(--danger-weak);
+  color: var(--danger);
+}
+
+.alert__title {
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+  margin: 0 0 4px;
+}
+
+.alert__message {
+  font: var(--t-body);
+  color: var(--text-2);
+  margin: 0;
+}
+
+.alert__actions {
+  grid-column: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────── */
+.tooltip {
+  z-index: 110;
+  padding: 4px var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--text-1);
+  color: var(--surface-1);
+  font: var(--t-label);
+  box-shadow: var(--shadow-overlay);
+  user-select: none;
+  animation: overlay-in var(--dur-1) var(--ease-out);
+}
+
+.tooltip__arrow {
+  fill: var(--text-1);
+}
+
+/* ── Animacion de los overlays ─────────────────────────────────
+ * Radix retrasa el desmontaje hasta que termina la animacion de salida, asi que
+ * basta con enganchar los keyframes a [data-state]. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
+/* El desenfoque del scrim ya existia (blur(2px), arriba); lo que faltaba era
+ * que ENTRARA. Aparecer ya desenfocado hace que el fondo de sensacion de haber
+ * cambiado de golpe; creciendo desde cero, la hoja parece empujarlo hacia atras. */
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+}
+
+/* Sube 6px al entrar, ademas de la escala. Una hoja que solo crece parece un
+ * cartel; una que sube parece que viene de algun sitio. */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    translate: -50% calc(-50% + 6px);
+    scale: 0.97;
+  }
+}
+
+.scrim[data-state='open'] {
+  animation: scrim-in var(--dur-2) var(--ease-out);
+}
+.scrim[data-state='closed'] {
+  animation: scrim-in var(--dur-1) var(--ease-out) reverse;
+}
+
+.sheet[data-state='open'],
+.alert[data-state='open'] {
+  animation: sheet-in var(--dur-2) var(--ease-out);
+}
+.sheet[data-state='closed'],
+.alert[data-state='closed'] {
+  animation: sheet-in var(--dur-1) var(--ease-out) reverse;
+}
+
+/* Enlace dentro de un texto corrido: deshacer una accion que ya se aplico
+ * ("Volver al tamano original"). Un boton con chapa competiria con la accion
+ * principal del aviso; esto se lee como parte de la frase. */
+.linkish {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.linkish:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stack--tight {
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}

@@ -1,0 +1,587 @@
+/* shell.css — el armazon: barra superior, rail de control, escenario y pie.
+ *
+ * La idea central del rediseno esta en la primera regla. Antes la app era un
+ * documento centrado de 1180 px que scrolleaba: en un monitor de 2560 px eso
+ * son ~700 px de fondo vacio a cada lado, y el lienzo —que es el contenido—
+ * encerrado en una tarjeta de la columna derecha sin poder crecer.
+ *
+ * Ahora es una rejilla que ocupa la ventana exacta. El rail mide lo que tiene
+ * que medir y TODO lo que sobra se lo queda el lienzo. En 1366 px el rail se
+ * estrecha; en 2560 px el dibujo se hace enorme. Ese es el reparto correcto
+ * para una aplicacion de maquina: el espacio va donde esta la informacion.
+ */
+
+.shell {
+  position: relative;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr var(--statusbar-h);
+  grid-template-columns: var(--rail-w) 1fr;
+  grid-template-areas:
+    'top  top'
+    'rail stage'
+    'foot foot';
+  overflow: hidden;
+}
+
+/* ── Barra superior ────────────────────────────────────────────── */
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-3);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+
+.topbar__rail-toggle {
+  display: none;
+}
+
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-left: var(--sp-1);
+  flex: none;
+}
+
+.topbar__logo {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  flex: none;
+}
+
+.topbar__name {
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+}
+
+.topbar__sep {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+  flex: none;
+}
+
+/* Sin margin-left:auto aca: el empujon a la derecha lo da .readout con
+ * margin-right:auto. Con los dos, el espacio libre se reparte entre ambos y el
+ * progreso acaba flotando en mitad de la barra. */
+.topbar__tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+/* Por debajo de 1200 px la marca es lo primero que sobra: el nombre de la app
+ * no le dice nada a quien ya la tiene abierta. */
+@media (max-width: 1200px) {
+  .topbar__name,
+  .topbar__sep {
+    display: none;
+  }
+}
+
+/* ── Rail ──────────────────────────────────────────────────────── */
+.rail {
+  grid-area: rail;
+  background: var(--surface-1);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-width: 0;
+  /* Los paneles de dentro se adaptan al ancho del rail, no al de la ventana:
+   * asi el mismo PenControl se comprime bien aca y en la hoja de calibracion,
+   * que es mas ancha. */
+  container-type: inline-size;
+}
+
+.rail-group + .rail-group {
+  border-top: 1px solid var(--line);
+}
+
+.rail-group__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-3);
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+.rail-group__head:hover {
+  color: var(--text-1);
+}
+
+.rail-group__title {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+
+.rail-group__caret {
+  transition: transform var(--dur-2) var(--ease-out);
+  flex: none;
+}
+
+.rail-group__caret--open {
+  transform: rotate(90deg);
+}
+
+/* Marca a la derecha del titulo: "cargado", "pendiente". Es lo que permite
+ * tener un grupo colapsado sin perder de vista que hay dentro. */
+.rail-group__aside {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 1px 5px;
+  flex: none;
+}
+
+.rail-group__clip {
+  overflow: hidden;
+}
+
+.rail-group__body {
+  padding: var(--sp-1) var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* ── Escenario ─────────────────────────────────────────────────── */
+.stage {
+  grid-area: stage;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-0);
+  padding: var(--sp-4);
+  display: grid;
+  place-items: center;
+  /* container-type: size habilita cqw/cqh, que es lo que permite que el marco
+   * de abajo calcule su tamano contra el hueco disponible. */
+  container-type: size;
+}
+
+/* El marco tiene la MISMA proporcion que el area de trabajo de la maquina
+ * (--ratio lo pone Stage.jsx) y crece hasta tocar el lado que primero se
+ * agote. Asi el recuadro abraza el dibujo en vez de ser una caja ancha con el
+ * trazado flotando en el medio y 300 px de vacio a cada lado: el area de
+ * trabajo de una maquina cuadrada se ve cuadrada. */
+.stage__frame {
+  position: relative;
+  aspect-ratio: var(--ratio, 1);
+  width: min(100cqw, 100cqh * var(--ratio, 1), 1500px);
+  display: grid;
+  background: var(--canvas-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+/* Insignia de trabajo en curso. */
+.stage__badge {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--overlay-surface);
+  backdrop-filter: var(--overlay-blur);
+  -webkit-backdrop-filter: var(--overlay-blur);
+  border: 1px solid var(--line);
+  color: var(--text-1);
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+}
+
+.stage__badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: led-breathe 1.6s var(--ease-in-out) infinite;
+}
+
+/* ── Barra flotante del lienzo ─────────────────────────────────
+ * Este es el sitio donde el material translucido SI corresponde: es un control
+ * que se apoya encima del contenido y tiene que dejar ver lo que tapa. */
+.stage__toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--sp-4);
+  /* El translateX(-50%) que centraba esto NO va aca: la barra la anima motion,
+   * que escribe `transform` en el estilo inline y borraria esta regla entera —
+   * la barra se iria al borde izquierdo en cuanto empezara a entrar. El
+   * centrado viaja con la animacion, como `x: '-50%'` en Stage.jsx. */
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  max-width: calc(100% - var(--sp-6));
+  border-radius: var(--r-lg);
+  background: var(--overlay-surface);
+  backdrop-filter: var(--overlay-blur);
+  -webkit-backdrop-filter: var(--overlay-blur);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-overlay);
+}
+
+.stage__toolbar-reason {
+  font: var(--t-label);
+  color: var(--text-2);
+  padding-right: var(--sp-2);
+  max-width: 260px;
+}
+
+/* Arriba a la derecha y no abajo a la izquierda: abajo se cruza con la barra
+ * flotante de Ejecutar/Simular. */
+.stage__legend {
+  position: absolute;
+  right: var(--sp-3);
+  top: var(--sp-3);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend__swatch {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--canvas-pending);
+}
+
+.legend__swatch--done {
+  background: var(--canvas-ink);
+}
+
+.legend__swatch--rapid {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--canvas-pending) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.stage__hint {
+  position: absolute;
+  left: 50%;
+  bottom: var(--sp-5);
+  transform: translateX(-50%);
+  text-align: center;
+  max-width: 340px;
+  pointer-events: none;
+}
+
+.stage__hint-title {
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+  margin-bottom: 2px;
+}
+
+/* ── Pie ───────────────────────────────────────────────────────── */
+.statusbar {
+  grid-area: foot;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  background: var(--surface-1);
+  border-top: 1px solid var(--line);
+  font: var(--t-micro);
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.statusbar__item {
+  white-space: nowrap;
+}
+
+.statusbar__dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--text-3);
+  opacity: 0.6;
+  flex: none;
+}
+
+.statusbar__ok,
+.statusbar__notice {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.statusbar__notice {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-2);
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 0 var(--sp-2);
+  height: 100%;
+}
+
+.statusbar__notice:hover {
+  color: var(--text-1);
+}
+
+.statusbar__notice--warn {
+  color: var(--warn);
+}
+
+.statusbar__notice--error {
+  color: var(--danger);
+}
+
+.statusbar__notice-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46ch;
+}
+
+.statusbar__mode {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  letter-spacing: var(--tr-micro);
+  margin-left: var(--sp-2);
+}
+
+.statusbar__mode--sim {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  background: var(--accent-weak);
+}
+
+/* Panel de avisos: se despliega desde el pie, apoyado sobre el escenario, sin
+ * empujar nada. Es la diferencia con las tarjetas flotantes de antes, que
+ * movian el contenido cada vez que aparecia un aviso. */
+.notices {
+  position: absolute;
+  right: var(--sp-4);
+  bottom: calc(var(--statusbar-h) + var(--sp-3));
+  z-index: 30;
+  width: min(460px, calc(100% - var(--rail-w) - var(--sp-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* ── Panel del dibujo (rail) ───────────────────────────────────── */
+.dropzone {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  color: var(--text-2);
+  cursor: pointer;
+  background: var(--recess);
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    background-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+
+.dropzone:hover {
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.dropzone--over {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+
+.dropzone__title {
+  font: var(--t-body);
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--recess);
+  border: 1px solid var(--line);
+}
+
+.file > .icon {
+  color: var(--text-3);
+  flex: none;
+}
+
+.file__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.file__name {
+  font: var(--t-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file__meta {
+  font: var(--t-micro);
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Etiqueta de estado del archivo. Texto de color sobre fondo tenue: no hace
+ * falta un LED con halo para decir "cabe". */
+.tag {
+  flex: none;
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+
+.tag--ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 26%, transparent);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+
+.tag--bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: var(--danger-weak);
+}
+
+/* ── Cajon del rail (solo pantallas angostas) ─────────────────── */
+.rail-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  background: var(--scrim);
+  cursor: pointer;
+}
+
+/* ── Adaptacion al ancho de pantalla ───────────────────────────
+ * El objetivo no es "que quepa": es que en cada tamano el reparto siga siendo
+ * el correcto. El rail crece un poco en pantallas grandes (para que los
+ * controles respiren) y el resto siempre se lo lleva el dibujo. */
+@media (min-width: 1440px) {
+  :root {
+    --rail-w: 320px;
+    --topbar-h: 56px;
+  }
+  .stage {
+    padding: var(--sp-5);
+  }
+}
+
+@media (min-width: 1920px) {
+  :root {
+    --rail-w: 356px;
+  }
+  .stage {
+    padding: var(--sp-6);
+  }
+}
+
+/* Por debajo de 1024 px el rail deja de tener sitio propio y pasa a ser un
+ * cajon que se abre desde la barra superior. El lienzo se queda con la ventana
+ * entera, que es lo unico que tiene sentido a ese ancho. */
+@media (max-width: 1023px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'top'
+      'stage'
+      'foot';
+  }
+
+  .topbar__rail-toggle {
+    display: grid;
+  }
+
+  .rail {
+    position: fixed;
+    top: var(--topbar-h);
+    bottom: var(--statusbar-h);
+    left: 0;
+    width: min(320px, 86vw);
+    z-index: 50;
+    box-shadow: var(--shadow-overlay);
+    transform: translateX(-101%);
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+
+  .shell--rail-open .rail {
+    transform: none;
+  }
+
+  .shell--rail-open .rail-scrim {
+    display: block;
+  }
+
+  .notices {
+    width: min(460px, calc(100% - var(--sp-8)));
+  }
+}

@@ -1,0 +1,184 @@
+/* calibration.css — asistente guiado de calibracion. */
+
+.wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-1);
+}
+
+.wizard-step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 0;
+  text-align: left;
+  min-width: 0;
+}
+
+.wizard-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.wizard-step__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font: var(--t-micro);
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+
+/* El paso actual es el unico marcado: en un asistente de tres pasos, "donde
+ * estoy" tiene que ganar a "por donde pase". */
+.wizard-step--current .wizard-step__dot {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+.wizard-step--done .wizard-step__dot {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 34%, transparent);
+  color: var(--ok);
+}
+
+.wizard-step__label {
+  font: var(--t-label);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-2) var(--ease-out);
+}
+
+.wizard-step--current .wizard-step__label {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.wizard-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* Instrucciones numeradas dentro de un paso. El asistente lleva de la mano:
+ * cada accion dice que va a pasar fisicamente antes de que pase. */
+.steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: paso;
+}
+
+.steps-list__item {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+
+.steps-list__item::before {
+  counter-increment: paso;
+  content: counter(paso);
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font: var(--t-micro);
+  display: grid;
+  place-items: center;
+  margin-top: 1px;
+}
+
+.steps-list__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* Caja de resultado: telemetria, asi que hueco + monoespaciada, igual que la
+ * lectura de posicion de la barra superior. */
+.result-box {
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--recess);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-inset);
+  font: var(--t-metric);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.result-box__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.result-box__label {
+  font: var(--t-label);
+  color: var(--text-2);
+}
+
+/* ── Ajustes rapidos ────────────────────────────────────────────
+ * La otra mitad de la hoja de calibracion: el asistente sirve para estrenar la
+ * maquina, esto para el dia a dia. Cada bloque guarda lo suyo, asi que
+ * visualmente tienen que leerse como piezas separadas y no como un formulario
+ * largo con un boton al final.
+ */
+.quick-cal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.quick-cal__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* Los dos ejes en paralelo: se calibran igual y por separado, y verlos uno al
+ * lado del otro es lo que hace evidente que son dos numeros distintos. */
+.quick-cal__axes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--sp-3);
+}
+
+.quick-cal__axis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+}

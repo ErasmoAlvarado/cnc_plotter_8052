@@ -1,0 +1,217 @@
+/* base.css — reset, tipografia por defecto y utilidades compartidas.
+ * Solo lo que aplica a toda la app; lo especifico de cada area vive en su
+ * propio .css.
+ *
+ * Nota sobre el fondo: es un color. Antes habia tres luces de color
+ * desenfocadas animandose en bucle detras de todo, que es lo que obligaba a que
+ * cada panel fuese de cristal (habia algo que refractar). Quitando las luces se
+ * cae solo el resto del efecto, y la pantalla deja de moverse cuando la maquina
+ * esta quieta.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* La aplicacion ocupa la ventana y no scrollea: lo que scrollea es el rail, por
+ * su cuenta. Sin esto, el armazon de 100dvh provoca una barra de scroll de un
+ * pixel en cuanto algo se pasa de alto. */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-1);
+  font: var(--t-body);
+  letter-spacing: var(--tr-body);
+  font-optical-sizing: auto;
+  /* cv05 = 'l' con cola: a 13px es la diferencia entre leer "l" y leer "1" en
+   * una etiqueta de eje. calt mantiene las ligaduras contextuales de Inter. */
+  font-feature-settings: 'cv05' 1, 'calt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  isolation: isolate;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+/* Un solo anillo de foco para toda la app, y solo para el teclado. Sin halo de
+ * color: en una interfaz gris, un contorno de 2px ya es lo mas visible de la
+ * pantalla. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Utilidades ────────────────────────────────────────────────── */
+
+/* Todo numero que la maquina actualiza en vivo. Sin cifras tabulares, la
+ * lectura de X/Y baila en cada mensaje del WebSocket (cada 200 ms) porque el
+ * "1" es mas angosto que el resto — justo el dato que el usuario mira fijo. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Etiqueta de grupo: pequena, en versalitas y separada. Es lo que rotula una
+ * seccion sin robarle peso al dato que contiene. */
+.micro {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* Titulo de seccion dentro de una hoja. En el rail ese papel lo hace la
+ * cabecera del grupo (.rail-group__title), asi que esto solo aparece en las
+ * hojas modales, donde no hay grupos colapsables. */
+.section-title {
+  font: var(--t-title);
+  letter-spacing: var(--tr-title);
+}
+
+/* Texto explicativo — el que sostiene la regla de "no mostrar un estado
+ * invalido sin decir por que". */
+.hint {
+  font: var(--t-label);
+  color: var(--text-2);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Separador dentro de un panel. Una linea, de canto a canto, sin degradados:
+ * sobre una superficie solida no hay nada que disimular. */
+.divider {
+  height: 1px;
+  border: none;
+  margin: 0;
+  background: var(--line);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.row--end {
+  justify-content: flex-end;
+}
+
+.row > .field {
+  flex: 1;
+  min-width: 120px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+  background-clip: content-box;
+}
+
+/* ── Animaciones compartidas ───────────────────────────────────── */
+
+/* Respiracion del LED de conexion: el halo crece y se apaga, el punto no se
+ * mueve. Animar el punto haria vibrar la barra entera. Es la unica animacion en
+ * bucle que queda en la app, y esta justificada: dice "el enlace esta vivo"
+ * incluso cuando ningun numero cambia. */
+@keyframes led-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

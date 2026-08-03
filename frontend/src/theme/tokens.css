@@ -1,0 +1,170 @@
+/* tokens.css — vocabulario visual de la interfaz.
+ *
+ * Todo lo que sea color, tipografia, radio, sombra o curva de animacion vive
+ * aca y en ningun otro sitio: los componentes solo consumen var(--...).
+ *
+ * El sistema es "instrumento": la app es una carcasa gris neutra y el dibujo es
+ * lo unico saturado de la pantalla. Tres reglas que no se rompen:
+ *
+ *   1. Un solo acento. Marca la accion primaria y la tinta del trazo, nada mas.
+ *      Si algo se pinta de azul "para que se vea bonito", esta mal.
+ *   2. El color restante SIGNIFICA estado: rojo = paro, ambar = atencion,
+ *      verde = enlace vivo. Ninguno decora.
+ *   3. La elevacion se hace con bordes y con la rampa de superficies. Las
+ *      sombras y el desenfoque quedan para lo que de verdad flota por encima
+ *      del contenido (hojas, dialogos, la barra del lienzo).
+ *
+ * Claro y oscuro se declaran juntos con light-dark(): un unico valor por token
+ * en vez de repetir la paleta entera tres veces. El interruptor manual solo
+ * cambia 'color-scheme' y light-dark() resuelve solo.
+ */
+
+:root {
+  /* El esquema por defecto lo decide el sistema; los dos overrides de abajo son
+   * los que atiende el boton de tema (useTheme escribe data-theme en <html>). */
+  color-scheme: light dark;
+
+  /* ── Tipografia ────────────────────────────────────────────────
+   * Inter y JetBrains Mono van empaquetadas (@fontsource-variable), no pedidas
+   * al sistema. La version anterior pedia SF Pro y en Windows caia en Segoe UI,
+   * asi que el diseno se veia en una tipografia que nadie habia elegido. */
+  --font-ui: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SF Mono',
+    'Cascadia Mono', Consolas, monospace;
+
+  /* Escala de escritorio con raton, no de movil con dedo. El cuerpo a 13px es
+   * lo que permite que un panel denso siga siendo legible; a 17px (la medida
+   * tactil de iOS) la misma informacion pide el doble de alto y todo termina
+   * pareciendo grande y apretado a la vez. */
+  --t-display: 500 20px/1.1 var(--font-mono);
+  --t-metric: 500 15px/1.2 var(--font-mono);
+  --t-title: 600 14px/19px var(--font-ui);
+  --t-body: 400 13px/18px var(--font-ui);
+  --t-label: 500 12px/16px var(--font-ui);
+  --t-micro: 600 10px/13px var(--font-ui);
+
+  --tr-display: -0.03em;
+  --tr-title: -0.011em;
+  --tr-body: -0.006em;
+  --tr-micro: 0.07em;
+
+  /* ── Forma ─────────────────────────────────────────────────────
+   * Radios de instrumento. Nada de squircles de 22px: la esquina generosa es la
+   * cita mas literal a iOS que habia en el codigo. */
+  --r-sm: 5px;
+  --r-md: 7px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-pill: 999px;
+
+  /* ── Espaciado (base 4) ────────────────────────────────────────
+   * Reglas de aplicacion: padding de panel = sp-4, separacion entre grupos =
+   * sp-3, dentro de un grupo = sp-2, entre piezas hermanas = sp-1. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ── Alturas de control ────────────────────────────────────────
+   * Cuatro y no mas. Todo control de la app mide una de estas. */
+  --h-xs: 22px;
+  --h-sm: 26px;
+  --h-md: 30px;
+  --h-lg: 36px;
+
+  /* ── Armazon ───────────────────────────────────────────────────
+   * El ancho del rail lo redefine shell.css por breakpoint. */
+  --topbar-h: 52px;
+  --statusbar-h: 26px;
+  --rail-w: 300px;
+
+  /* ── Movimiento ────────────────────────────────────────────────
+   * Solo dos curvas en CSS. Todo lo que necesite fisica de resorte se hace con
+   * motion (src/motion.js), no con una duracion fija. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-1: 110ms;
+  --dur-2: 190ms;
+  --dur-3: 300ms;
+
+  /* ── Superficies ───────────────────────────────────────────────
+   * Rampa neutra fria de cuatro pasos. surface-0 es el fondo del armazon (lo
+   * mas hundido) y cada escalon se acerca al usuario. Son colores solidos: en
+   * una app que se mira ocho horas, el cristal cansa y ademas cuesta GPU. */
+  --surface-0: light-dark(#e7eaef, #0b0d11);
+  --surface-1: light-dark(#ffffff, #14171c);
+  --surface-2: light-dark(#f3f5f8, #1b1f25);
+  --surface-3: light-dark(#e8ebf0, #232830);
+
+  /* Hueco: lo contrario de una superficie elevada. Campos, rieles, el disco del
+   * jog — todo lo que esta "por debajo" del panel que lo contiene. */
+  --recess: light-dark(#eef0f4, #0e1116);
+
+  --line: light-dark(#dde1e7, #262b33);
+  --line-strong: light-dark(#c6ccd5, #333a44);
+
+  --text-1: light-dark(#12161b, #e8ebef);
+  --text-2: light-dark(#5b6470, #949daa);
+  --text-3: light-dark(#8d95a1, #5f6874);
+
+  /* ── Acento (uno) ──────────────────────────────────────────────
+   * Azul de traza: el color de la tinta en el lienzo y de la accion primaria.
+   * Nada mas en toda la app puede usarlo. */
+  --accent: light-dark(#0a6ed6, #3d94f6);
+  --accent-hover: light-dark(#0b7ef0, #57a4f8);
+  --accent-press: light-dark(#0a62bd, #2e83e4);
+  --accent-weak: light-dark(rgba(10, 110, 214, 0.1), rgba(61, 148, 246, 0.14));
+  --accent-line: light-dark(rgba(10, 110, 214, 0.35), rgba(61, 148, 246, 0.38));
+  --on-accent: #ffffff;
+
+  /* ── Estado ────────────────────────────────────────────────────
+   * Solo aparecen cuando ese estado es real. El verde esta reservado al LED de
+   * conexion: si tine tambien botones y toggles, deja de querer decir
+   * "la maquina responde". */
+  --ok: light-dark(#1a9c53, #35c877);
+  --warn: light-dark(#b06000, #f0a53a);
+  --warn-weak: light-dark(rgba(176, 96, 0, 0.1), rgba(240, 165, 58, 0.13));
+  --danger: light-dark(#c62b22, #f4564c);
+  --danger-hover: light-dark(#d93a30, #f66a60);
+  --danger-weak: light-dark(rgba(198, 43, 34, 0.09), rgba(244, 86, 76, 0.13));
+
+  /* ── Elevacion ─────────────────────────────────────────────────
+   * Tres niveles: plano (solo borde), elevado (borde + sombra corta) y overlay
+   * (lo unico que flota de verdad). */
+  --shadow-raised: 0 1px 2px light-dark(rgba(16, 22, 32, 0.08), rgba(0, 0, 0, 0.4));
+  --shadow-overlay: 0 8px 16px -6px light-dark(rgba(16, 22, 32, 0.14), rgba(0, 0, 0, 0.5)),
+    0 24px 48px -12px light-dark(rgba(16, 22, 32, 0.18), rgba(0, 0, 0, 0.6));
+  --shadow-inset: inset 0 1px 1px light-dark(rgba(16, 22, 32, 0.05), rgba(0, 0, 0, 0.35));
+
+  /* Material translucido: existe, pero solo para lo que se apoya ENCIMA del
+   * contenido — hojas, dialogos y la barra flotante del lienzo. */
+  --overlay-surface: light-dark(rgba(252, 253, 255, 0.86), rgba(24, 28, 34, 0.86));
+  --overlay-blur: blur(20px) saturate(150%);
+  --scrim: light-dark(rgba(28, 34, 44, 0.32), rgba(0, 0, 0, 0.62));
+
+  /* ── Lienzo ────────────────────────────────────────────────────
+   * El area de trabajo es papel; la tinta es el acento. Es la unica zona de la
+   * pantalla donde el color manda, y funciona justamente porque el resto no
+   * compite. */
+  --canvas-bg: light-dark(#e4e7ec, #0a0c10);
+  --canvas-paper: light-dark(#ffffff, #191d24);
+  --canvas-grid: light-dark(rgba(18, 30, 48, 0.08), rgba(150, 180, 220, 0.1));
+  --canvas-frame: light-dark(rgba(18, 30, 48, 0.22), rgba(150, 180, 220, 0.2));
+  --canvas-pending: light-dark(rgba(18, 30, 48, 0.32), rgba(190, 205, 225, 0.3));
+  --canvas-ink: var(--accent);
+  --canvas-origin: var(--text-3);
+}
+
+/* Override manual: el usuario manda sobre el sistema. No hay que redeclarar
+ * ningun color — light-dark() lee 'color-scheme' y resuelve la paleta entera. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}

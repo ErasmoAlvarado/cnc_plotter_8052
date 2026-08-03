@@ -1,0 +1,258 @@
+/* status.css — las piezas de telemetria de la barra superior. */
+
+/* ── Conexion ──────────────────────────────────────────────────── */
+.conn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--h-lg);
+  padding: 0 var(--sp-3) 0 var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-1);
+  cursor: pointer;
+  flex: none;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+
+.conn:hover {
+  background: var(--surface-3);
+  border-color: var(--line-strong);
+}
+
+/* El LED. El punto no se mueve nunca; lo que respira es el halo del ::after.
+ * Animar el punto haria vibrar la barra entera.
+ *
+ * Es el unico verde de la aplicacion, a proposito: mientras solo lo lleve esto,
+ * "verde" significa exactamente "la maquina responde". */
+.conn__led {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 3px;
+  background: var(--text-3);
+  flex: none;
+  transition: background-color var(--dur-2) var(--ease-out);
+}
+
+.conn__led::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  animation: led-breathe 2.6s var(--ease-in-out) infinite;
+}
+
+/* Desconectado no late: no hay nada vivo al otro lado. */
+.conn__led--off::after {
+  animation: none;
+}
+
+.conn__led--ok {
+  background: var(--ok);
+}
+
+.conn__led--sim {
+  background: var(--accent);
+}
+
+.conn__led--bad {
+  background: var(--danger);
+}
+
+/* El fallo late al doble de velocidad: la urgencia se codifica en el ritmo, no
+ * solo en el color (que un dalton no distingue del verde). */
+.conn__led--bad::after {
+  animation-duration: 1.1s;
+}
+
+.conn__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.conn__state {
+  font: var(--t-label);
+  font-weight: 600;
+}
+
+.conn__meta {
+  font: var(--t-micro);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+}
+
+.conn__alarm {
+  color: var(--danger);
+}
+
+/* ── Lectura de posicion ───────────────────────────────────────
+ * Telemetria: monoespaciada, con la etiqueta del eje pequena y apartada. El
+ * valor domina porque es lo unico que cambia. */
+/* margin-right:auto y no margin-left:auto en .job — con dos margenes
+ * automaticos el espacio libre se reparte entre los dos y el progreso acababa
+ * flotando en mitad de la barra. Asi la telemetria queda pegada a la izquierda
+ * y el progreso viaja junto a las herramientas. */
+.readout {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-2);
+  margin-right: auto;
+  min-width: 0;
+}
+
+.axis {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.axis__name {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  color: var(--text-3);
+}
+
+.axis__value {
+  font: var(--t-display);
+  letter-spacing: var(--tr-display);
+  color: var(--text-1);
+}
+
+.axis__unit {
+  font: var(--t-micro);
+  color: var(--text-3);
+}
+
+/* ── Estado de la pluma ────────────────────────────────────────── */
+.pen-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px var(--sp-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: default;
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out);
+}
+
+.pen-state__label {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+}
+
+/* Pluma abajo = esta tocando el papel. Es el unico estado que se enciende,
+ * porque es el unico en el que un movimiento deja marca. */
+.pen-state--down {
+  background: var(--accent-weak);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* ── Progreso del trabajo ──────────────────────────────────────── */
+.job {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* Envoltorio de la barra + su lectura. Existe para que AnimatePresence tenga un
+ * solo elemento que cruzar contra "En reposo"; hereda el flex de .job para que
+ * la barra y el texto sigan colocandose igual que cuando colgaban de el. */
+.job__running {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.job__bar {
+  width: clamp(80px, 14vw, 200px);
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--recess);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  flex: none;
+}
+
+.job__fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+}
+
+.job__label {
+  font: var(--t-micro);
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.job__idle {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* En pantallas donde la barra superior va justa, lo primero que se va es el
+ * detalle del progreso: el porcentaje sigue estando en el pie. */
+@media (max-width: 1300px) {
+  .job__label,
+  .job__idle {
+    display: none;
+  }
+}
+
+/* ── Minimapa de recuperacion ──────────────────────────────────── */
+.recovery-map {
+  background: var(--recess);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-3);
+  display: grid;
+  place-items: center;
+}
+
+.recovery-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--sp-2);
+}
+
+.fact {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.fact__label {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.fact__value {
+  font: var(--t-metric);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}

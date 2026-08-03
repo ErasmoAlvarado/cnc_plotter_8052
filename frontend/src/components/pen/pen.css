@@ -1,0 +1,86 @@
+/* pen.css — ajuste fino del porta-pluma.
+ *
+ * Es el unico sitio de la app con un deslizador. Esta justificado: buscar la
+ * presion es un gesto continuo —se acerca a ojo y se afina— y el Stepper de
+ * cinco en cinco que habia obligaba a pulsar catorce veces para recorrer el
+ * rango util.
+ */
+.pen-tuner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.pen-tuner__slider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--recess);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface-1);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+}
+
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--surface-1);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+}
+
+.slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.slider:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* El numero al lado del deslizador, no debajo: mientras se arrastra hay que
+ * poder leerlo sin mover la vista. */
+.pen-tuner__value {
+  min-width: 5.5ch;
+  text-align: right;
+  font: var(--t-metric);
+  color: var(--text-1);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.pen-tuner__unit {
+  font: var(--t-micro);
+  letter-spacing: var(--tr-micro);
+  color: var(--text-3);
+}
+
+.pen-tuner__fine,
+.pen-tuner__tests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}

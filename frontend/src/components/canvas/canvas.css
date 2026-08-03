@@ -1,0 +1,127 @@
+/* canvas.css — el lienzo del G-code y su seguimiento en vivo.
+ *
+ * Este es el unico sitio de la aplicacion donde el color manda, y funciona
+ * justamente porque el resto de la pantalla es gris: cuando la unica cosa
+ * saturada de la ventana es el trazo, no hay que hacer nada para destacarlo.
+ * La version anterior tenia el trazado compitiendo contra botones azules con
+ * halo, LEDs verdes, avisos ambar y tres luces de color animadas en el fondo.
+ */
+
+.plot-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Todos los trazos usan non-scaling-stroke: el grosor se fija en pixeles, no en
+ * milimetros. Sin esto, un area de 40 mm y una de 200 mm se dibujarian con
+ * lineas de grosor visual completamente distinto.
+ *
+ * OJO con el selector: antes era `.plot-canvas [stroke]`, que en CSS solo
+ * matchea elementos con un ATRIBUTO stroke — y aca el stroke lo pone la clase,
+ * asi que no matcheaba ninguno. El resultado era que el grosor se multiplicaba
+ * por la escala del viewBox: en un area de 80 mm dibujada a 700 px, una linea
+ * de "1" salia de 8 px. Por eso la reticula se veia como bandas. */
+.plot-canvas :is(path, line, rect, circle, polyline, polygon) {
+  vector-effect: non-scaling-stroke;
+}
+
+/* El papel: el area util de la maquina, mas clara que el fondo del lienzo. Que
+ * sea una superficie y no solo un marco es lo que hace entender de un vistazo
+ * donde puede dibujar la maquina y donde no. */
+.plot-canvas__paper {
+  fill: var(--canvas-paper);
+  stroke: var(--canvas-frame);
+  stroke-width: 1;
+}
+
+.plot-canvas__grid {
+  stroke: var(--canvas-grid);
+  stroke-width: 1;
+}
+
+.plot-canvas__pending {
+  fill: none;
+  stroke: var(--canvas-pending);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.plot-canvas__pending--rapid {
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.55;
+}
+
+/* Lo ya dibujado: tinta. Sin drop-shadow — un filtro SVG sobre un path que se
+ * repinta cinco veces por segundo era ademas lo mas caro de toda la app. */
+.plot-canvas__done {
+  fill: none;
+  stroke: var(--canvas-ink);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.plot-canvas__done--rapid {
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  opacity: 0.3;
+}
+
+/* La estela es la posicion REAL reportada por la maquina, por eso va encima de
+ * todo y algo mas gruesa: es la unica capa que no es una prediccion. */
+.plot-canvas__trail {
+  fill: none;
+  stroke: var(--canvas-ink);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* El cabezal: un aro cuando la pluma esta arriba, relleno cuando toca el papel.
+ * Es la misma regla que el indicador de la barra superior. */
+.plot-canvas__head {
+  fill: var(--canvas-paper);
+  stroke: var(--canvas-ink);
+  stroke-width: 2;
+}
+
+.plot-canvas__head--down {
+  fill: var(--canvas-ink);
+}
+
+.plot-canvas__head-halo {
+  fill: var(--canvas-ink);
+  opacity: 0.16;
+}
+
+.plot-canvas__head-halo--pulsing {
+  animation: head-pulse 1.8s var(--ease-in-out) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes head-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.16;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.02;
+  }
+}
+
+.plot-canvas__origin {
+  fill: var(--canvas-origin);
+}
+
+.plot-canvas__overflow {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
