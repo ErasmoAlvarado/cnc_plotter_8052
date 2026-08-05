@@ -2,22 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 
 const REDUCED = '(prefers-reduced-motion: reduce)'
 
-// Interpola el cabezal entre las muestras que llegan por WebSocket.
+// interpola el cabezal entre muestras del websocket con un lerp por frame,
+// nunca se adelanta a la ultima posicion real conocida
 //
-// El backend emite progreso como mucho cada 200 ms (last_ws_update en
-// run_gcode_thread), asi que pintar la posicion cruda da un movimiento a cinco
-// saltos por segundo. Este hook persigue el objetivo con un lerp por frame: el
-// cabezal siempre va hacia la ultima posicion REAL conocida, nunca la adelanta,
-// solo suaviza el camino hasta ella.
-//
-// Recibe numeros sueltos y no un objeto {x,y} a proposito: con un objeto, cada
-// render del padre crea una referencia nueva y el efecto se reiniciaria en cada
-// frame.
+// numeros sueltos y no {x,y}, un objeto nuevo reiniciaria el efecto cada frame
 export default function useSmoothedPoint(tx, ty, { factor = 0.22, epsilon = 0.01 } = {}) {
   const hasTarget = Number.isFinite(tx) && Number.isFinite(ty)
 
-  // El primer valor se toma ya en el render inicial, no en el efecto: si no, el
-  // cabezal falta durante un frame cada vez que aparece el lienzo.
+  // el primer valor se toma en el render inicial, si no falta un frame al aparecer
   const [point, setPoint] = useState(() => (hasTarget ? { x: tx, y: ty } : null))
   const targetRef = useRef(null)
   const currentRef = useRef(hasTarget ? { x: tx, y: ty } : null)
@@ -31,7 +23,7 @@ export default function useSmoothedPoint(tx, ty, { factor = 0.22, epsilon = 0.01
       return
     }
 
-    // Primer punto, o movimiento reducido: aparecer directamente donde toca.
+    // primer punto o reduced motion, aparece directo donde va sin animar
     if (!currentRef.current || window.matchMedia(REDUCED).matches) {
       currentRef.current = { x: tx, y: ty }
       setPoint(currentRef.current)

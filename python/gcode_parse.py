@@ -1,30 +1,20 @@
 """
-gcode_parse.py — Lexico del G-code y descomposicion de arcos.
+convierte el gcode en una lista de puntos es ma facil de manejar en python , tambine maneja los arcos
 
-Estaba dentro de cnc_plotter.py. Se saco a su propio modulo porque
-gcode_walk.py lo necesita y cnc_plotter.py importa gcode_walk: dejarlo donde
-estaba creaba un import circular.
-
-Es codigo movido tal cual, sin cambios de comportamiento. cnc_plotter.py
-sigue re-exportando los dos nombres para no romper a quien ya los importaba
-desde alli.
 """
 
 import math
 import re
 
 
-# ─── PARSER G-CODE ───────────────────────────────────────────────────
-
-# [SW-25] acepta  X10  X-10  X+10  X.5  X1.5e2
 _GCODE_TOKEN = re.compile(r'([A-Z])\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[Ee][+-]?\d+)?)')
 
 
 def parse_gcode_line(line):
-    """Parsea una linea de G-code. Retorna dict {letra: valor} o None."""
-    line = re.sub(r'\(.*?\)', '', line)     # comentarios entre parentesis
-    line = re.sub(r';.*$', '', line)        # comentarios con ;
-    line = re.sub(r'^\s*%.*$', '', line)    # delimitadores de programa
+    """parsea una linea, devuelve dict {letra: valor} o None si no hay nada"""
+    line = re.sub(r'\(.*?\)', '', line)   
+    line = re.sub(r';.*$', '', line)        
+    line = re.sub(r'^\s*%.*$', '', line)    
     line = line.strip().upper()
     if not line:
         return None
@@ -38,12 +28,9 @@ def parse_gcode_line(line):
     return params if params else None
 
 
-# ─── ARCOS -> SEGMENTOS DE LINEA ────────────────────────────────────
-
 def arc_to_segments(x0, y0, x1, y1, i, j, clockwise, chord_tol=0.005):
-    """Descompone un arco G2/G3 en segmentos rectos.
-    (x0,y0) inicio, (x1,y1) fin, (i,j) offset del inicio al centro, en mm.
-    chord_tol: error maximo de cuerda en mm. Retorna lista de puntos (x,y)."""
+    """parte un arco G2 o G3 en puntos, x0 y0 inicio, x1 y1 fin.
+    i j es el offset al centro en mm, chord_tol es el error de cuerda"""
     cx = x0 + i
     cy = y0 + j
     r = math.hypot(i, j)
@@ -51,11 +38,7 @@ def arc_to_segments(x0, y0, x1, y1, i, j, clockwise, chord_tol=0.005):
     if r < 1e-6:
         return [(x1, y1)]
 
-    # [SW-47] En un arco valido el destino esta a la misma distancia del
-    # centro que el origen. Si no lo esta, el G-code trae I/J erroneos
-    # (post-procesador roto, o un G2 sin I/J heredando los anteriores) y
-    # el bucle de abajo dibujaria una espiral que no cierra donde toca.
-    # Mejor una recta hasta el destino que un trazo fantasma.
+
     r_end = math.hypot(x1 - cx, y1 - cy)
     if abs(r_end - r) > max(0.05, r * 0.01):
         return [(x1, y1)]
@@ -70,13 +53,12 @@ def arc_to_segments(x0, y0, x1, y1, i, j, clockwise, chord_tol=0.005):
     if sweep <= 1e-9:
         sweep += 2.0 * math.pi
 
-    # segmentos adaptativos: error_cuerda = r * (1 - cos(theta/2))
     if chord_tol >= r:
         n = 8
     else:
         theta_max = 2.0 * math.acos(max(-1.0, min(1.0, 1.0 - chord_tol / r)))
         n = max(8, int(math.ceil(sweep / theta_max)))
-    n = min(n, 2000)                       # techo de seguridad
+    n = min(n, 2000)                      
 
     points = []
     for k in range(1, n + 1):
@@ -84,5 +66,5 @@ def arc_to_segments(x0, y0, x1, y1, i, j, clockwise, chord_tol=0.005):
         angle = a_start - t * sweep if clockwise else a_start + t * sweep
         points.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
 
-    points[-1] = (x1, y1)                  # cerrar exacto en el destino
+    points[-1] = (x1, y1)                
     return points

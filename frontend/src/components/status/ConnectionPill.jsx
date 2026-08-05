@@ -1,13 +1,13 @@
 import { useStatus } from '../../StatusContext.jsx'
 import Icon from '../ui/Icon.jsx'
 
-// LED + estado + puerto. Pulsarlo abre la hoja de conexion: el indicador y su
-// control son el mismo objeto, asi no hay que buscar "donde se conecta" en otra
-// pantalla.
+// led + estado + puerto. al apretarlo abre la hoja de conexion, el
+// indicador y el control son el mismo objeto, asi no hay que buscar
+// "donde me conecto" en otra pantalla.
 //
-// El verde de esta app existe solo aca. Si tine tambien toggles y botones deja
-// de querer decir "la maquina responde", que es justo lo unico que tiene que
-// decir.
+// el verde de esta app existe solo aca. si lo usaramos tambien en toggles
+// y botones dejaria de significar "la maquina responde", que es lo unico
+// que tiene que decir
 export default function ConnectionPill({ onOpen }) {
   const { status, connected, commLost } = useStatus()
 

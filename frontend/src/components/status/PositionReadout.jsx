@@ -11,15 +11,14 @@ function Axis({ name, value, unit }) {
   )
 }
 
-// Telemetria de la maquina. Es el dato que el usuario compara mentalmente
-// contra lo que ve en la mesa, y el que mas veces por segundo cambia (el
-// WebSocket emite cada ~200 ms).
+// telemetria de la maquina. es el dato que el usuario compara mentalmente
+// contra lo que ve en la mesa, y el que mas cambia por segundo (el
+// websocket manda cada ~200ms).
 //
-// Deliberadamente SIN suavizado: el cabezal del lienzo se interpola porque ahi
-// lo que importa es que el movimiento se lea continuo, pero un numero que
-// muestra una posicion tiene que decir la ultima posicion reportada y no una
-// intermedia inventada. La lectura se estabiliza con cifras tabulares (.tnum),
-// no retrasando el valor.
+// a proposito sin suavizado: el cabezal del canvas se interpola porque ahi
+// importa que se vea continuo, pero un numero de posicion tiene que
+// mostrar la ultima posicion real, no una intermedia inventada. se
+// estabiliza con cifras tabulares (.tnum), no retrasando el valor
 export default function PositionReadout() {
   const { status } = useStatus()
   const pos = status?.position

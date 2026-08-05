@@ -27,20 +27,12 @@ import {
   ZapOff,
 } from 'lucide-react'
 
-// Iconografia de la app.
+// todo sale de lucide, misma grilla y mismo trazo en toda la app
 //
-// El sprite dibujado a mano que habia antes tenia pesos y radios distintos en
-// cada simbolo (comparar 'plug' con 'sun'), y eso es lo que hacia que el
-// conjunto se viera desparejo por mucho que cada icono suelto estuviera bien.
-// Ahora todo viene de Lucide, que es una sola rejilla y un solo trazo.
-//
-// El peso se fija aca y en ningun sitio mas: un icono de esta app SIEMPRE tiene
-// el mismo grosor de linea, mida 12 o mida 28.
+// el grosor se define solo aca, ningun icono tiene su propia linea
 const STROKE = 1.75
 
-// Los dos unicos iconos propios: la pluma arriba y abajo. Son del dominio (no
-// existen en ninguna libreria) y son el estado que mas se mira de un vistazo,
-// asi que se dibujan con la misma rejilla de 24 y el mismo trazo que el resto.
+// los unicos 2 iconos propios: pluma arriba y abajo, no existen en ninguna libreria
 function PenUp(props) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE}
@@ -62,8 +54,7 @@ function PenDown(props) {
   )
 }
 
-// Los nombres se conservan tal cual los usan los componentes: cambiar la
-// libreria de iconos no deberia obligar a tocar 20 archivos.
+// cambiar de libreria de iconos no deberia obligar a tocar 20 archivos
 const REGISTRY = {
   'chevron-up': ChevronUp,
   'chevron-down': ChevronDown,

@@ -6,13 +6,12 @@ import { viewport } from '../coords.js'
 import PlotCanvas from '../components/canvas/PlotCanvas.jsx'
 import Button from '../components/ui/Button.jsx'
 
-// El escenario: el lienzo ocupando todo el espacio que no usa el rail.
+// el stage: el canvas ocupando todo el espacio que no usa el rail.
 //
-// Sin archivo cargado NO se muestra un hueco vacio con un icono. Se muestra el
-// area de trabajo de la maquina con el cabezal en su posicion real — que es
-// informacion util incluso antes de tener un dibujo, y ademas es la unica forma
-// de que el usuario entienda de un vistazo donde esta el (0,0) y hacia donde
-// crecen los ejes.
+// sin archivo cargado no mostramos un hueco vacio con un icono, mostramos
+// el area de trabajo real con el cabezal en su posicion real -- sirve para
+// entender de un vistazo donde esta el (0,0) y para donde crecen los ejes
+// incluso sin tener nada cargado
 export default function Stage({ drawing }) {
   const { status, jobActive, penDown, startJob, reason } = useStatus()
   const { gcode, paths, playback, donePathCount, head, trail, penSteps } = drawing
@@ -20,7 +19,7 @@ export default function Stage({ drawing }) {
 
   const runReason = reason('run')
 
-  // Con dibujo cargado manda su area de trabajo; sin dibujo, la de la maquina.
+  // con dibujo cargado usa el area de trabajo del gcode, sin dibujo la de la maquina
   const workArea = gcode?.work_area ?? {
     max_x_mm: status?.max_x_mm ?? 100,
     max_y_mm: status?.max_y_mm ?? 100,
@@ -32,9 +31,9 @@ export default function Stage({ drawing }) {
     penDown,
   }
 
-  // El marco toma la proporcion del area de trabajo para que el recuadro abrace
-  // el dibujo. El aire de cada lado sale de coords.viewport(), el mismo que usa
-  // PlotCanvas en su viewBox: antes estaba escrito a mano en los dos sitios.
+  // el marco toma la proporcion del area de trabajo para que el recuadro le
+  // quede justo al dibujo. el aire de cada lado sale de coords.viewport(),
+  // el mismo que usa PlotCanvas en su viewBox (antes estaba a mano en los dos lados)
   const { ratio } = viewport({ maxX: workArea.max_x_mm, maxY: workArea.max_y_mm })
 
   return (
@@ -64,8 +63,8 @@ export default function Stage({ drawing }) {
           )}
         </AnimatePresence>
 
-        {/* La leyenda y la pista ocupan el mismo hueco, asi que se cruzan con
-            `mode="wait"`: solapadas se leerian como dos textos encimados. */}
+        {/* leyenda y pista ocupan el mismo hueco, por eso el cruce con
+            mode="wait" -- solapadas se verian como texto encimado */}
         <AnimatePresence mode="wait" initial={false}>
           {gcode ? (
             <motion.div
@@ -90,10 +89,10 @@ export default function Stage({ drawing }) {
             <motion.div
               key="hint"
               className="stage__hint"
-              // Igual que la barra: .stage__hint se centra con translateX(-50%)
-              // en CSS. Aca solo se anima la opacidad, asi que motion no llegaria
-              // a tocar el transform — pero se declara igual para que anadir
-              // manana un `y` no descentre el bloque sin avisar.
+              // igual que la barra de abajo: .stage__hint se centra con
+              // translateX(-50%) en css. aca solo animamos opacity asi que
+              // motion ni toca el transform, pero lo declaro igual para que
+              // si el dia de manana alguien agrega un `y` no se descentre
               initial={{ opacity: 0, x: '-50%' }}
               animate={{ opacity: 1, x: '-50%' }}
               exit={{ opacity: 0, x: '-50%' }}
@@ -107,15 +106,15 @@ export default function Stage({ drawing }) {
           )}
         </AnimatePresence>
 
-        {/* La barra flota sobre el lienzo apoyada en el borde inferior, asi que
-            entra desde abajo: viene de donde esta, no de la nada. */}
+        {/* la barra flota apoyada en el borde inferior asi que entra desde
+            abajo, viene de donde esta */}
         <AnimatePresence>
           {gcode && (
             <motion.div
               className="stage__toolbar"
-              // El x: '-50%' es el centrado (antes translateX en CSS), no un
-              // gesto: motion compone un solo transform y hay que darselo todo
-              // aca o se pierde. Va en los tres estados a proposito.
+              // x: '-50%' es el centrado (antes translateX en css), no un
+              // gesto -- motion compone un solo transform asi que hay que
+              // pasarselo completo en los 3 estados o se pierde
               initial={{ opacity: 0, x: '-50%', y: 8 }}
               animate={{ opacity: 1, x: '-50%', y: 0 }}
               exit={{ opacity: 0, x: '-50%', y: 8 }}

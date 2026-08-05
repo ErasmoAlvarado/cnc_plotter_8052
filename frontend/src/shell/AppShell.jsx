@@ -13,23 +13,17 @@ import Stage from './Stage.jsx'
 import StatusBar from './StatusBar.jsx'
 import useDrawing from './useDrawing.js'
 
-// Armazon de la aplicacion.
+// armazon de la app, grid de 3 filas y 2 columnas que ocupa toda la ventana
 //
-// Es una rejilla de tres filas (barra / cuerpo / pie) y dos columnas
-// (rail / escenario) que ocupa exactamente la ventana. La pagina no scrollea
-// nunca: lo que scrollea es el rail, por su cuenta. Eso es lo que permite que
-// el lienzo se quede con todo el espacio que sobre, en vez de dejar margenes
-// vacios a los lados como hacia el dashboard centrado de 1180 px.
+// la pagina nunca scrollea, solo el rail, asi el canvas usa todo el espacio
 //
-// Todo lo que no es "mirar el dibujo" o "mover la maquina" vive en hojas
-// modales, igual que antes.
+// todo lo que no es ver el dibujo o mover la maquina va en hojas modales
 export default function AppShell() {
   const [sheet, setSheet] = useState(null)
   const [recovery, setRecovery] = useState(null)
-  // El aviso de "Z sin energizar" y el paso 3 del asistente son el mismo tema:
-  // desde el aviso se entra directamente al paso que lo resuelve.
+  // el aviso de Z sin energizar entra directo al paso del wizard que lo arregla
   const [wizardStep, setWizardStep] = useState(0)
-  // Solo se usa por debajo de 1024 px, donde el rail pasa a ser un cajon.
+  // solo se usa debajo de 1024px, donde el rail pasa a ser un cajon
   const [railOpen, setRailOpen] = useState(false)
   const { reduce } = useMotionPrefs()
 
@@ -51,10 +45,7 @@ export default function AppShell() {
 
   return (
     <TooltipProvider>
-      {/* Fundido corto al arrancar. Las fuentes y el primer /api/status llegan
-          un instante despues del primer pintado, y sin esto lo que se ve es la
-          rejilla desnuda dando un tiron. Es opacidad y nada mas: mover el
-          armazon entero seria justo el gesto llamativo que v3 no quiere. */}
+      {/* fade corto al arrancar, sin esto se ve la grilla pelada tironeando */}
       <motion.div
         className={`shell ${railOpen ? 'shell--rail-open' : ''}`.trim()}
         initial={reduce ? false : { opacity: 0 }}
@@ -76,7 +67,7 @@ export default function AppShell() {
           onNavigate={closeRail}
         />
 
-        {/* Cortina del cajon: solo existe en pantallas angostas. */}
+        {/* cortina del cajon, solo existe en pantallas angostas */}
         <button
           type="button"
           className="rail-scrim"
@@ -106,8 +97,7 @@ export default function AppShell() {
 
       <PenTunerSheet open={sheet === 'pen'} onClose={() => setSheet(null)} />
 
-      {/* Montado siempre, igual que las otras tres hojas: es lo que le permite
-          animar su cierre — ver el comentario en RecoveryDialog. */}
+      {/* montado siempre, es lo que permite animar el cierre */}
       <RecoveryDialog recovery={recovery} onClose={() => setRecovery(null)} />
     </TooltipProvider>
   )

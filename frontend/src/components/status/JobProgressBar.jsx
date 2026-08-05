@@ -12,14 +12,13 @@ function formatElapsed(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-// Barra + Detener. El boton esta SIEMPRE montado (deshabilitado si no hay
-// trabajo) en vez de aparecer y desaparecer: quien necesita pararlo de urgencia
-// no deberia tener que buscar donde salio el boton esta vez.
+// barra + boton detener. el boton esta siempre montado (disabled si no hay
+// job) en vez de aparecer/desaparecer, si necesitas pararlo de urgencia no
+// deberias tener que buscar donde aparecio el boton esta vez.
 //
-// La barra si se suaviza con un resorte, al reves que la lectura de posicion:
-// el progreso llega en saltos de 0.3% cada 200 ms y sin interpolar avanza a
-// tirones. Aca no hay riesgo de enganar a nadie — el numero exacto esta escrito
-// al lado.
+// la barra si se suaviza con spring, al reves que la lectura de posicion:
+// el progreso llega en saltos de 0.3% cada 200ms y sin interpolar se ve a
+// tirones. aca no hay riesgo de mentir, el numero exacto esta al lado
 export default function JobProgressBar() {
   const { status, jobActive, runAction } = useStatus()
   const { t, reduce } = useMotionPrefs()
@@ -30,10 +29,9 @@ export default function JobProgressBar() {
 
   const value = useSpring(0, readoutSpring)
   const width = useTransform(value, (v) => `${v}%`)
-  // El numero sale del MISMO MotionValue que el relleno. Tenerlos en dos
-  // fuentes distintas —la barra interpolada y el porcentaje en texto plano—
-  // hacia que se contradijeran a la vista: la barra iba por el 40% mientras el
-  // numero de al lado ya decia 43%.
+  // el numero sale del mismo MotionValue que el relleno. con 2 fuentes
+  // distintas (la barra interpolada y el porcentaje en texto plano) se
+  // contradecian a la vista, la barra iba en 40% y el numero ya decia 43%
   const label = useTransform(value, (v) => Math.round(v))
 
   useEffect(() => {

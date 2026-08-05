@@ -1,11 +1,11 @@
 import IconButton from './IconButton.jsx'
 
-// Valor numerico con −/+ a los lados. Se prefiere a un <input type="number">
-// pelado en todo lo que se ajusta "a tanteo" (profundidad de pluma, backlash,
-// velocidades): el usuario no tiene que escribir, solo empujar el valor.
+// numero con -/+ a los lados. se usa en vez de un input number pelado para
+// todo lo que se ajusta "a tanteo" (profundidad de pluma, backlash,
+// velocidades), asi el usuario no tiene que escribir, solo empujar.
 //
-// El input sigue existiendo y acepta escritura directa, porque para calibrar
-// hace falta poder teclear una medida exacta.
+// el input sigue aceptando escritura directa porque para calibrar hace
+// falta poder teclear una medida exacta
 export default function Stepper({
   value,
   onChange,
@@ -21,8 +21,8 @@ export default function Stepper({
   const valid = Number.isFinite(num)
 
   const clamp = (n) => Math.min(max, Math.max(min, n))
-  // Se redondea a 4 decimales para que 0.1 + 0.2 no acabe escribiendo
-  // 0.30000000000000004 en un campo que el usuario esta mirando.
+  // redondeamos a 4 decimales para que 0.1 + 0.2 no termine escribiendo
+  // 0.30000000000000004 justo en el campo que el usuario esta mirando
   const round = (n) => Math.round(n * 10000) / 10000
   const bump = (delta) => onChange(String(round(clamp((valid ? num : min) + delta))))
 

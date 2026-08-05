@@ -7,16 +7,9 @@ import Banner from '../ui/Banner.jsx'
 import Reveal from '../ui/Reveal.jsx'
 import SegmentedControl from '../ui/SegmentedControl.jsx'
 
-// Paso 1: pasos por milimetro.
+// paso 1: pasos por milimetro, de este dependen todos los demas, va primero
 //
-// Es el ajuste del que dependen todos los demas: si esta mal, el dibujo sale
-// con el tamano equivocado por mucho que el resto este perfecto. Por eso es el
-// primero del wizard y el que bloquea a los siguientes.
-//
-// X e Y se miden por SEPARADO. Antes se trazaba solo en X y el resultado se
-// escribia en los dos ejes: en una maquina de cremallera y pinon, con dos
-// mecanismos distintos, eso dejaba Y sistematicamente mal calibrado y el error
-// no se veia hasta dibujar un circulo y encontrarse un ovalo.
+// X e Y se miden separado, cremallera y pinon son mecanismos distintos
 const EJES = [
   { value: 'x', label: 'Eje X' },
   { value: 'y', label: 'Eje Y' },
@@ -32,8 +25,7 @@ export default function StepSpm({ onDone, done }) {
   const measuredNum = Number(measured)
   const measuredValid = measuredNum > 0 && measuredNum <= 1000
   const bloqueado = !canOperate || busy
-  // El trazo vale para el eje con el que se hizo: cambiar de pestana no puede
-  // dejar arrastrar una medida de X a la correccion de Y.
+  // el trazo vale solo para el eje con el que se hizo
   const trazoDelEje = drawResult?.axis === eje ? drawResult : null
 
   async function drawLine() {
@@ -53,7 +45,7 @@ export default function StepSpm({ onDone, done }) {
       setMeasured('')
       await refreshConfig()
       await refreshStatus()
-      // El paso se da por hecho cuando los DOS ejes estan medidos.
+      // el paso se da por completo cuando los 2 ejes estan medidos
       if (eje === 'x' ? applied.y : applied.x) onDone()
     } catch {
       /* banner */

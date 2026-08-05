@@ -1,8 +1,6 @@
-"""Deja los modulos de python/ importables sin instalar el proyecto.
-
-No hay paquete ni pyproject: los modulos se importan por nombre suelto
-(`import cnc_plotter`) porque asi es como los ejecuta cnc_api.py.
-"""
+"""deja los modulos de python/ importables sin instalar nada. no hay
+paquete ni pyproject, se importan por nombre suelto (import cnc_plotter)
+pq asi los corre cnc_api.py"""
 
 import os
 import sys

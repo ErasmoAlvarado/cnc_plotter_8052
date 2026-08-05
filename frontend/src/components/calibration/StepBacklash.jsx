@@ -9,20 +9,13 @@ import Banner from '../ui/Banner.jsx'
 import Reveal from '../ui/Reveal.jsx'
 import JogPad from '../dashboard/JogPad.jsx'
 
-// Paso 2: juego mecanico (backlash).
-//
-// Reutiliza el D-pad del dashboard, pero cableado a /api/calibrate/backlash/move
-// y NO a /api/jog. La diferencia es el punto entero del paso: el jog normal ya
-// aplica compensacion de backlash, asi que medir con el daria siempre cero.
-// Este endpoint manda los pasos crudos, sin compensar.
+// paso 2: juego mecanico. usa /api/calibrate/backlash/move y no /api/jog,
+// el jog normal ya compensa el backlash y mediria siempre cero
 export default function StepBacklash({ onDone, done }) {
   const { canOperate, busy, runAction, refreshConfig, refreshStatus, status } = useStatus()
   const [rawSteps, setRawSteps] = useState('200')
   const [moveResult, setMoveResult] = useState(null)
-  // Sembrados desde la maquina en cuanto llega el estado. Antes se leian una
-  // sola vez en el montaje: si el componente se montaba antes del primer
-  // /api/status —que es lo normal— los campos se quedaban en 0 y "Guardar"
-  // borraba la compensacion que ya estaba medida.
+  // sembrados desde la maquina, si no Guardar borraba la compensacion ya medida
   const [blX, setBlX] = useSyncedValue(status?.backlash?.x, 0)
   const [blY, setBlY] = useSyncedValue(status?.backlash?.y, 0)
 
@@ -36,11 +29,7 @@ export default function StepBacklash({ onDone, done }) {
     [status?.invert_x, status?.invert_y],
   )
 
-  // El D-pad habla en direcciones que ve el usuario. Aqui se traducen igual
-  // que en el panel de movimiento —misma funcion— pero el destino es otro:
-  // /api/calibrate/backlash/move manda PASOS CRUDOS, sin compensacion. Es el
-  // punto entero de este paso: el jog normal ya compensa el juego, asi que
-  // medir con el daria siempre cero.
+  // mismo traductor de direcciones que el panel de movimiento, este destino manda pasos crudos
   async function move(direction) {
     const v = jogVector(direction, invert)
     if (!v || v.axis === 'z') return

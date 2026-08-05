@@ -5,13 +5,13 @@ import ConnectionPill from '../components/status/ConnectionPill.jsx'
 import PositionReadout from '../components/status/PositionReadout.jsx'
 import JobProgressBar from '../components/status/JobProgressBar.jsx'
 
-// Barra superior. Orden de lectura de izquierda a derecha: quien soy -> donde
-// estoy conectado -> donde esta la maquina -> que esta haciendo -> como la
-// paro. Los ajustes van al final, que es donde menos estorban.
+// barra superior. orden de lectura izq a derecha: quien soy -> donde estoy
+// conectado -> donde esta la maquina -> que esta haciendo -> como la paro.
+// los ajustes van al final, que es donde menos estorban.
 //
-// Es la unica pieza que esta siempre a la vista, asi que no contiene nada que
-// no sea imprescindible: cualquier cosa que se pueda mirar "cuando haga falta"
-// vive en el rail o en una hoja.
+// es lo unico que siempre esta a la vista, no lleva nada que no sea
+// imprescindible -- todo lo que se puede mirar "cuando haga falta" va en
+// el rail o en una hoja
 export default function TopBar({ onOpenConnection, onOpenAdvanced, onToggleRail, railOpen }) {
   const { isDark, toggle } = useTheme()
 
@@ -26,8 +26,8 @@ export default function TopBar({ onOpenConnection, onOpenAdvanced, onToggleRail,
       />
 
       <div className="topbar__brand">
-        {/* Marca: el trazo de un plotter y el cabezal al final. Dibujado aca y
-            no en un archivo aparte porque es una sola forma de 3 lineas. */}
+        {/* logo: el trazo de un plotter con el cabezal al final. va inline
+            y no en un archivo aparte porque son 3 lineas nomas */}
         <svg className="topbar__logo" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M3 18.5c3.5 0 4-13 7.5-13s4 9 7.5 9"

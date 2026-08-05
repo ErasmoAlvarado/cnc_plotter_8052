@@ -1,12 +1,11 @@
 import * as T from '@radix-ui/react-tooltip'
 
-// Etiqueta emergente. Es lo que permite que el rail sea denso sin volverse
-// adivinanza: un boton de icono puede medir 26px si al posarse encima dice lo
-// que hace.
+// tooltip. es lo que permite que el rail sea denso sin volverse adivinanza,
+// un boton de icono puede medir 26px si al pasar el mouse dice que hace.
 //
-// No sustituye al aria-label — Radix ya expone el contenido al lector de
-// pantalla, pero un tooltip no aparece nunca con navegacion tactil, asi que
-// todo control que solo se explique por aca lleva ademas su etiqueta accesible.
+// no reemplaza el aria-label, radix ya expone el contenido al lector de
+// pantalla pero un tooltip nunca aparece con navegacion tactil, entonces
+// todo control que solo se explica por aca tiene ademas su etiqueta accesible
 
 export function TooltipProvider({ children }) {
   return (

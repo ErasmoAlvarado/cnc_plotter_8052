@@ -10,15 +10,9 @@ import Banner from '../ui/Banner.jsx'
 import Reveal from '../ui/Reveal.jsx'
 import Stepper from '../ui/Stepper.jsx'
 
-// Ajustes rápidos de calibración.
+// para el dia a dia, cada parametro se edita y guarda por separado sin el wizard entero
 //
-// El asistente sirve para estrenar la máquina. Para el día a día —«el círculo
-// salió un milímetro largo en Y», «la pluma raya un poco»— obligaba a recorrer
-// los tres pasos completos, moviendo los ejes y gastando papel, para tocar un
-// solo número. Acá cada parámetro se edita y se guarda por separado.
-//
-// Cada bloque guarda LO SUYO, no el formulario entero: guardar la escala no
-// debería reescribir de paso el juego mecánico que otro estaba midiendo.
+// cada bloque guarda lo suyo nomas, guardar la escala no debe pisar el backlash
 export default function QuickCalibration() {
   const { status, canOperate, busy, runAction, refreshConfig, refreshStatus } = useStatus()
   const [medida, setMedida] = useState({ x: '', y: '' })
@@ -39,9 +33,7 @@ export default function QuickCalibration() {
 
   if (!form) return null
 
-  // /api/settings recibe el bloque entero, así que los campos que no se están
-  // editando viajan con el valor que ya tenían: lo que cambia es lo que el
-  // usuario tocó, no lo que el formulario resulta que tiene cargado.
+  // /api/settings recibe el bloque entero, los campos sin editar viajan con su valor viejo
   const guardar = async (parciales) => {
     await runAction(() =>
       api.settings({
@@ -78,7 +70,7 @@ export default function QuickCalibration() {
       setTrazado(null)
       await refreshConfig()
       await refreshStatus()
-      reload()          // el campo vuelve a leer el valor recién calculado
+      reload()          // vuelve a leer el valor recien calculado
     } catch {
       /* banner */
     }

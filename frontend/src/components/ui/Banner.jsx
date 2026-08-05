@@ -8,9 +8,9 @@ const ICONS = {
   error: 'warning',
 }
 
-// Aviso en linea. Se usa para lo que tiene que quedarse a la vista (Z sin
-// energizar, comunicacion perdida, firmware antiguo), no para confirmaciones
-// —esas van en ConfirmDialog, que interrumpe a proposito.
+// aviso en linea. para lo que tiene que quedar a la vista (Z sin
+// energizar, comunicacion perdida, firmware viejo), no para confirmaciones,
+// esas van en ConfirmDialog que interrumpe a proposito
 export default function Banner({ tone = 'info', title, children, action, onDismiss }) {
   return (
     <div className={`banner banner--${tone}`} role={tone === 'error' ? 'alert' : 'status'}>

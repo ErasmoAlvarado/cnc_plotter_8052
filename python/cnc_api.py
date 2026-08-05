@@ -1,58 +1,8 @@
 """
-cnc_api.py — API FastAPI del Mini CNC Plotter — v2 FINAL
+api usa fastapi
+;se comunica con http y utiliza websockets or la comunicaacion bidereccional
 
-CAMBIOS RESPECTO A LA v1 (ver DIAGNOSTICO.md):
 
- [SW-3a] El puerto serie ya esta protegido por un RLock dentro de
-         CNCProtocol, asi que los hilos de job y los endpoints HTTP no
-         pueden intercalar bytes de tramas distintas.
- [SW-3b] TODOS los endpoints que mueven algo comprueban _require_idle().
-         Antes /api/pen, /api/home, /api/motors-off y /api/ping no lo
-         hacian: pulsar el boton de pluma en mitad de un dibujo inyectaba
-         una trama en el stream y desincronizaba el firmware.
- [SW-3c] Los endpoints bloqueantes son 'def', no 'async def'. FastAPI los
-         ejecuta en un threadpool. Antes congelaban el event loop entero
-         (WebSocket incluido) durante cada movimiento.
- [SW-1]  pen_down_flag es una propiedad derivada; ya no se le asigna.
-         La recuperacion de posicion pregunta al MCU en vez de fiarse
-         de un fichero de hace una hora.
- [SW-5]  /api/pen-config envia de verdad la profundidad al firmware.
- [SW-6]  El jog de Z usa steps_per_mm_z y tiene limites propios.
- [SW-16] run_gcode_thread comprueba proto ademas de plotter.
- [SW-17] /api/disconnect aborta el job y espera al hilo.
- [SW-18] La calibracion de backlash no suma pasos que no se ejecutaron.
- [SW-22] CORS restringido a localhost.
- NUEVO   /api/z-set-zero, /api/z-off, /api/resync y aborto por segmento.
-
-CAMBIOS DE ESTA REVISION:
-
- [SW-30] /api/pen-holder: sentido fisico del eje Z segun como este
-         montado el porta-pluma. Va al firmware (C_ZDIR), no se emula.
-
- [SW-48] job_state["active"] se marca en el ENDPOINT, no dentro del
-         hilo. Antes, dos POST /api/run seguidos pasaban los dos por
-         _require_idle() antes de que el primer hilo llegase a marcar
-         nada, y acababan dos hilos mandando tramas al mismo puerto.
-
- [SW-49] abort_event se limpia al conectar y solo cuenta durante un
-         job. Antes, un /api/stop (o un /api/disconnect) dejaba el flag
-         puesto para siempre: la siguiente calibracion o patron se
-         cancelaba sola, en silencio, sin mover un paso.
-
- [SW-50] /api/jog normaliza la direccion a ±1 y usa |distancia|. Con
-         direction=2 la posicion cacheada avanzaba el doble que el eje.
-
- [SW-51] Validacion de rangos en TODOS los modelos de entrada. Un
-         steps_per_mm=0 en /api/settings dejaba la API dando 500 por
-         division por cero en cada peticion posterior.
-
- [SW-52] Los hilos de job capturan proto/plotter en locales. Un
-         /api/disconnect a mitad los ponia a None y el hilo moria con
-         AttributeError dentro del finally, sin avisar por WebSocket.
-
- [SW-53] El preview de /api/upload-gcode esta acotado. Un fichero con
-         miles de arcos generaba cientos de miles de puntos en un solo
-         JSON y tumbaba al navegador.
 """
 
 import asyncio
@@ -78,14 +28,14 @@ from gcode_walk import ArcEvent, MoveEvent, bounds_of, command_line_count, walk
 from soft_limits import LimitExceeded, TOLERANCE_MM, check_bounds, remaining_mm
 
 
-# ─── LIMITES ─────────────────────────────────────────────────────────
+# limites
 
-MAX_GCODE_LINES = 200_000        # ~10 MB de G-code
-MAX_PREVIEW_PATHS = 5_000        # trazos que se mandan al frontend
-MAX_PREVIEW_ARC_POINTS = 64      # puntos por arco en el preview
+MAX_GCODE_LINES = 200_000        
+MAX_PREVIEW_PATHS = 5_000       
+MAX_PREVIEW_ARC_POINTS = 64      
 
 
-# ─── ESTADO GLOBAL ───────────────────────────────────────────────────
+# estado global
 
 proto: Optional[CNCProtocol] = None
 plotter: Optional[CNCPlotter] = None
@@ -101,19 +51,16 @@ job_state = {
 
 loaded_gcode: List[str] = []
 
-# Transformacion aplicada al G-code cargado (espejo en Y / ajuste al area).
-# Vive junto a loaded_gcode y no dentro del fichero: el fichero no se toca
-# nunca, asi que el usuario puede quitar el espejo sin volver a subirlo.
+
 gcode_transform: GcodeTransform = IDENTITY
-gcode_bounds_raw: Bounds = Bounds()      # caja SIN transformar, la del fichero
+gcode_bounds_raw: Bounds = Bounds()    
 
 abort_event = threading.Event()
 job_thread: Optional[threading.Thread] = None
 active_websockets: List[WebSocket] = []
 loop: Optional[asyncio.AbstractEventLoop] = None
 
-# [SW-48] Serializa la comprobacion "esta libre?" con el "pues lo cojo".
-# Sin esto las dos peticiones ganan la carrera y arrancan dos hilos.
+
 job_lock = threading.Lock()
 
 
@@ -122,7 +69,6 @@ async def lifespan(app: FastAPI):
     global loop
     loop = asyncio.get_running_loop()
     yield
-    # apagado limpio: abortar job, ESPERARLO y dejar la pluma arriba
     abort_event.set()
     if job_thread and job_thread.is_alive():
         job_thread.join(timeout=10.0)
@@ -137,13 +83,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Mini CNC Plotter API", version="2.0", lifespan=lifespan)
 
-# [SW-22] '*' + credenciales en algo que mueve motores es mala idea:
-# cualquier web abierta en el navegador podria comandar la maquina.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8000", "http://127.0.0.1:8000",
-        "http://localhost:5173", "http://127.0.0.1:5173",   # dev del frontend
+        "http://localhost:5173", "http://127.0.0.1:5173",   
     ],
     allow_credentials=False,
     allow_methods=["*"],
@@ -151,7 +95,7 @@ app.add_middleware(
 )
 
 
-# ─── HELPERS ─────────────────────────────────────────────────────────
+# helpers
 
 def _require_conn():
     if not proto or not plotter:
@@ -159,23 +103,21 @@ def _require_conn():
 
 
 def _require_idle():
-    """[SW-3b] Nadie toca el puerto mientras hay un trabajo en curso."""
+    """nadie toca el puerto mientras hay un job corriendo"""
     if job_state["active"]:
         raise HTTPException(status_code=409, detail="Hay un job en curso")
 
 
 def _claim_job():
-    """[SW-48] Reserva el puerto para un trabajo nuevo, de forma atomica.
-
-    _require_idle() sola no basta: entre "no hay job" y el start() del
-    hilo hay una ventana en la que una segunda peticion tambien ve el
-    puerto libre. Y como job_state["active"] lo marcaba el propio hilo,
-    esa ventana duraba hasta el primer planificado del hilo — de sobra
-    para que dos jobs se pisaran las tramas en el mismo puerto serie."""
+    """reserva el puerto para un trabajo nuevo de forma atomica.
+    _require_idle() sola no alcanza, entre "no hay job" y que arranque el
+    hilo hay una ventana donde una segunda peticion tambien ve libre el
+    puerto - por eso esto marca active=True aca mismo y no dentro del
+    hilo, sino dos jobs casi simultaneos se pisan las tramas"""
     with job_lock:
         if job_state["active"]:
             raise HTTPException(status_code=409, detail="Hay un job en curso")
-        abort_event.clear()              # [SW-49] arrancar sin abort viejo
+        abort_event.clear()              # arrancar sin abort viejo pegado
         job_state.update({"active": True, "progress": 0.0,
                           "lines_processed": 0, "total_lines": 0,
                           "total_steps": 0, "elapsed": 0.0})
@@ -187,12 +129,10 @@ def _release_job():
 
 
 def _job_aborted() -> bool:
-    """[SW-49] El abort SOLO cuenta mientras hay un trabajo en curso.
-
-    plotter.abort_check apunta aqui. Antes apuntaba directo a
-    abort_event.is_set, y como /api/stop y /api/disconnect dejan el flag
-    puesto, cualquier movimiento largo posterior (calibracion, home,
-    patron) se cancelaba solo entre segmentos sin decir nada."""
+    """el abort solo cuenta mientras hay un job activo. plotter.abort_check
+    apunta aca (no directo a abort_event.is_set) pq /api/stop y
+    /api/disconnect dejan el flag puesto, y sino el siguiente movimiento
+    largo (calibracion, home, patron) se cancelaria solo sin avisar"""
     return job_state["active"] and abort_event.is_set()
 
 
@@ -216,9 +156,8 @@ def send_ws_message(msg: dict):
 
 
 def _status_dict() -> dict:
-    """[SW-3c] Version SINCRONA del estado. Antes status() era async y se
-    llamaba con 'await' desde endpoints bloqueantes, lo que obligaba a
-    que esos endpoints fueran async y congelaran el event loop."""
+    """version sincrona del estado, asi los endpoints bloqueantes la
+    pueden llamar sin tener que volverse async y congelar el event loop"""
     cfg = load_config()
 
     if not proto or not plotter:
@@ -278,20 +217,19 @@ def _status_dict() -> dict:
         "max_x_mm": plotter.max_x,
         "max_y_mm": plotter.max_y,
         "warnings": plotter.warnings,
-        # [SW-30] estado del sentido del eje Z. 'supported' en False
-        # significa firmware antiguo sin C_ZDIR: hay que reprogramarlo.
+        # supported=False es firmware viejo sin C_ZDIR, hay que reflashear
         "pen_invert": proto.z_invert,
         "pen_invert_supported": proto.z_invert_supported,
         "z_pen_down_threshold": plotter.z_pen_down_threshold,
         "enforce_soft_limits": plotter.enforce_soft_limits,
-        # Presentacion, no cinematica: el backend solo los guarda y los
-        # reporta; quien los aplica es frontend/src/coords.js.
+        # presentacion, no cinematica - el backend solo guarda y reporta,
+        # quien lo aplica de verdad es frontend/src/coords.js
         "invert_x": cfg["invert_x"],
         "invert_y": cfg["invert_y"],
     }
 
 
-# ─── CONEXION ────────────────────────────────────────────────────────
+# conexion
 
 class ConnectReq(BaseModel):
     port: Optional[str] = None
@@ -305,9 +243,9 @@ def connect(req: ConnectReq):
     if proto and (proto.simulate or (proto.ser and proto.ser.is_open)):
         return {"ok": True, "port": proto.port, "message": "Ya conectado"}
 
-    # [SW-49] Una desconexion o un /api/stop anterior dejaron el flag
-    # puesto. Si no se limpia aqui, el primer movimiento largo de esta
-    # sesion se aborta solo antes de mover un paso.
+    # una desconexion o un /api/stop de antes puede haber dejado el flag
+    # pegado, si no se limpia aca el primer movimiento largo de la sesion
+    # se aborta solo sin mover nada
     abort_event.clear()
 
     nuevo = CNCProtocol(port=req.port, simulate=req.simulate)
@@ -322,23 +260,19 @@ def connect(req: ConnectReq):
             detail="No se pudo conectar: puerto no disponible o sin respuesta")
 
     proto = nuevo
-    # [SW-5] from_config empuja VEL_Z, PEN_N y Z_DIR al firmware y relee.
+    # from_config empuja VEL_Z, PEN_N y Z_DIR al firmware y relee
     cfg = load_config()
     plotter = CNCPlotter.from_config(proto, cfg)
     plotter.abort_check = _job_aborted
 
     mcu = proto.get_state()
 
-    # [SW-30] Avisar si la config pide pluma invertida y el micro no
-    # sabe hacerlo: es un fallo silencioso muy caro (dibuja al aire y
-    # arrastra la punta por el papel en los rapidos).
     aviso = None
     if cfg.get("pen_invert") and proto.z_invert_supported is False:
         aviso = ("La config pide el eje Z invertido pero este firmware no "
                  "soporta C_ZDIR. Reprograma el AT89S52 con la version "
                  "actual de 8052_v2.asm.")
 
-    # Posicion anterior guardada en disco (solo X/Y: la Z real la sabe el MCU)
     last_pos = CNCProtocol.load_last_position()
     recovery = None
     if last_pos:
@@ -363,8 +297,8 @@ def connect(req: ConnectReq):
 
 @app.post("/api/disconnect")
 def disconnect():
-    """[SW-17] Abortar el job y ESPERAR al hilo antes de matar 'proto'.
-    Antes se ponia proto=None con el hilo vivo y reventaba con AttributeError."""
+    """aborta el job y espera al hilo antes de matar proto - si no se
+    espera y el hilo sigue vivo, revienta con AttributeError"""
     global proto, plotter, job_thread
     abort_event.set()
     if job_thread and job_thread.is_alive():
@@ -380,7 +314,6 @@ def disconnect():
         proto = None
         plotter = None
     _release_job()
-    # [SW-49] no dejar el abort armado para la proxima conexion
     abort_event.clear()
     return {"ok": True}
 
@@ -399,13 +332,11 @@ def ping():
 
 @app.post("/api/resync")
 def resync():
-    """Boton de panico. Relee el estado real del MCU (Z_POS, PEN_N, VEL,
-    VEL_Z) y realinea el PC. Sustituye al 'reiniciar la app' de antes."""
+    """boton de panico, relee el estado real del mcu y realinea el pc en
+    vez de tener que reiniciar toda la app"""
     _require_conn()
     _require_idle()
     ok = proto.sync_firmware()
-    # el resync relee Z_POS del micro: lo que creyeramos saber de la
-    # pluma deja de valer y hay que volver a mandarlo la proxima vez
     plotter.invalidate_pen_cache()
     return {"ok": ok, "state": proto.get_state(), "status": _status_dict()}
 
@@ -421,25 +352,21 @@ def get_config():
     return load_config()
 
 
-# ─── G-CODE ──────────────────────────────────────────────────────────
+# g-code
 
 def _preview_chord_tol(cfg) -> float:
-    """La MISMA tolerancia de cuerda que usara el plotter al dibujar
-    (CNCPlotter.chord_tol). Si el preview segmentase los arcos con otra
-    tolerancia, la geometria previsualizada no seria exactamente la que se
-    ejecuta — que es justo lo que este refactor viene a eliminar."""
+    """la misma tolerancia de cuerda que usa el plotter al dibujar
+    (CNCPlotter.chord_tol) - si el preview segmentara distinto, la
+    geometria mostrada no seria la que se ejecuta de verdad"""
     spm_x = max(1e-6, cfg["steps_per_mm_x"])
     spm_y = max(1e-6, cfg["steps_per_mm_y"])
     return min(1.0 / spm_x, 1.0 / spm_y)
 
 
 def _gcode_payload(filename=None) -> dict:
-    """Respuesta comun de /api/upload-gcode y /api/gcode-transform.
-
-    Recorre el G-code cargado UNA vez con gcode_walk —el mismo interprete que
-    lo va a dibujar— y saca de esa pasada el preview y la caja delimitadora.
-    Antes eran dos recorridos distintos (el bucle de preview y gcode_bounds),
-    cada uno con sus propias omisiones."""
+    """respuesta comun de /api/upload-gcode y /api/gcode-transform. recorre
+    el g-code una vez con gcode_walk (el mismo interprete que dibuja) y de
+    esa pasada saca preview y caja delimitadora juntos"""
     cfg = load_config()
     max_x, max_y = cfg["max_x_mm"], cfg["max_y_mm"]
 
@@ -448,10 +375,8 @@ def _gcode_payload(filename=None) -> dict:
     min_x = min_y = float('inf')
     max_bx = max_by = float('-inf')
 
-    # El indice de linea viaja con cada trazo del preview para que el frontend
-    # pueda pintar en vivo QUE trazo se esta dibujando: el mensaje "progress"
-    # del WebSocket manda 'line' contando sobre ESTA MISMA lista, asi que los
-    # dos indices son directamente comparables.
+    # el indice de linea viaja con cada trazo del preview asi el frontend
+    # puede pintar en vivo que trazo se esta dibujando 
     prev = gcode_transform.apply(0.0, 0.0)
     for ev in walk_loaded(cfg):
         if isinstance(ev, MoveEvent):
@@ -460,9 +385,7 @@ def _gcode_payload(filename=None) -> dict:
             prev = (ev.x, ev.y)
         elif isinstance(ev, ArcEvent):
             pts = list(ev.points)
-            # [SW-53] El preview es una ayuda visual, no el trabajo real: se
-            # acota. Sin esto, un fichero de arcos generaba hasta 2000 puntos
-            # POR arco y el JSON de respuesta llegaba a cientos de MB.
+
             paso = max(1, len(pts) // MAX_PREVIEW_ARC_POINTS)
             muestra = [prev] + pts[::paso]
             if muestra[-1] != pts[-1]:
@@ -472,8 +395,8 @@ def _gcode_payload(filename=None) -> dict:
         else:
             continue
 
-        for px, py in puntos:                 # caja sobre la geometria REAL,
-            min_x = min(min_x, px)            # no sobre la muestra del preview
+        for px, py in puntos:                 
+            min_x = min(min_x, px)          
             max_bx = max(max_bx, px)
             min_y = min(min_y, py)
             max_by = max(max_by, py)
@@ -508,10 +431,9 @@ def _gcode_payload(filename=None) -> dict:
 
 
 def walk_loaded(cfg):
-    """Recorrido del G-code cargado con la transformacion vigente.
-
-    initial_pen_down=False (el valor por defecto del walker) porque el
-    preview describe el fichero, no el estado actual de la maquina."""
+    """recorre el g-code cargado con el transform vigente. usa el default
+    initial_pen_down=False pq el preview describe el archivo, no el
+    estado actual de la maquina"""
     return walk(loaded_gcode,
                 z_pen_down_threshold=cfg["z_pen_down_threshold"],
                 chord_tol=_preview_chord_tol(cfg),
@@ -521,9 +443,6 @@ def walk_loaded(cfg):
 @app.post("/api/upload-gcode")
 async def upload_gcode(file: UploadFile = File(...)):
     global loaded_gcode, gcode_transform, gcode_bounds_raw
-    # cambiar el fichero mientras se esta dibujando el anterior confunde
-    # a cualquiera que mire la UI; el job usa su propia referencia, pero
-    # el preview y los limites que se muestran serian los del otro
     _require_idle()
 
     content = await file.read()
@@ -535,7 +454,7 @@ async def upload_gcode(file: UploadFile = File(...)):
                    f"(maximo {MAX_GCODE_LINES})")
 
     loaded_gcode = lineas
-    gcode_transform = IDENTITY          # fichero nuevo, sin espejo ni ajuste
+    gcode_transform = IDENTITY          #
 
     cfg = load_config()
     gcode_bounds_raw = bounds_of(lineas, cfg["z_pen_down_threshold"],
@@ -544,32 +463,21 @@ async def upload_gcode(file: UploadFile = File(...)):
 
 
 class GcodeTransformReq(BaseModel):
-    # Espejo en Y: el G-code estandar asume Y hacia arriba y esta maquina
-    # tiene el origen arriba a la izquierda, asi que un fichero de CAM sale
-    # del reves. Es por fichero y no global porque depende de con que se
-    # exporto, no de la maquina.
     flip_y: bool = False
-    # "Ajustar al area": escalar y centrar para que quepa.
     fit: bool = False
 
 
 @app.post("/api/gcode-transform")
 def set_gcode_transform(req: GcodeTransformReq):
-    """Aplica espejo/ajuste al G-code YA cargado y devuelve el preview nuevo.
-
-    No se vuelve a subir el fichero ni se reescribe: la transformacion es un
-    dato aparte que consume el mismo walker. Por eso quitar el espejo es
-    exactamente igual de barato que ponerlo, y el preview que se ve es el que
-    se va a dibujar."""
+    """aplica espejo/ajuste al g-code ya cargado y devuelve el preview
+    nuevo, sin resubir ni reescribir el archivo - el transform es un dato
+    aparte que consume el mismo walker"""
     global gcode_transform
     _require_idle()
     if not loaded_gcode:
         raise HTTPException(status_code=400, detail="No hay G-code cargado")
 
     cfg = load_config()
-    # Siempre desde la caja ORIGINAL: encadenar sobre la transformacion
-    # anterior haria que pulsar "Ajustar al area" dos veces encogiera el
-    # dibujo dos veces.
     gcode_transform = build_transform(gcode_bounds_raw,
                                       cfg["max_x_mm"], cfg["max_y_mm"],
                                       flip_y=req.flip_y, fit=req.fit)
@@ -578,22 +486,18 @@ def set_gcode_transform(req: GcodeTransformReq):
 
 def run_gcode_thread(lines, abort_evt, pl: CNCPlotter, pr: CNCProtocol,
                      transform: GcodeTransform = IDENTITY):
-    """[SW-52] pl/pr llegan por parametro, NO se leen de las globales.
-
-    Un /api/disconnect a mitad de trabajo pone plotter y proto a None;
-    si este hilo los leyera de las globales, moriria con AttributeError
-    justo dentro del finally y el WebSocket nunca se enteraria de que el
-    trabajo termino. Con referencias locales el hilo siempre acaba
-    ordenadamente, aunque la sesion ya se haya cerrado por debajo."""
+    """pl/pr llegan por parametro y no se leen de las globales, pq un
+    /api/disconnect a mitad de trabajo las pone en None y si este hilo
+    las leyera directo moriria con AttributeError dentro del finally sin
+    avisar nunca por websocket"""
     total = len(lines)
     job_state.update({"total_lines": total, "lines_processed": 0,
                       "progress": 0.0, "total_steps": 0, "elapsed": 0.0})
-    pl.begin_job()                      # [SW-43][SW-44][SW-46]
+    pl.begin_job()
     t_start = time.perf_counter()
     last_ws_update = 0.0
 
     try:
-        # El MISMO recorrido que genero el preview y que valido los limites.
         for ev in pl.events(lines, transform):
             if abort_evt.is_set():
                 break
@@ -604,9 +508,7 @@ def run_gcode_thread(lines, abort_evt, pl: CNCPlotter, pr: CNCProtocol,
 
             pl.exec_event(ev)
 
-            # 'line' es el indice de linea del fichero, el mismo con el que
-            # /api/upload-gcode etiqueta cada trazo del preview: es lo que
-            # permite al frontend pintar exactamente lo ya dibujado.
+
             job_state["lines_processed"] = ev.line + 1
             job_state["total_steps"] = pl.total_steps
 
@@ -628,15 +530,12 @@ def run_gcode_thread(lines, abort_evt, pl: CNCPlotter, pr: CNCProtocol,
                     "elapsed": job_state["elapsed"],
                 })
     except LimitExceeded as e:
-        # No deberia llegar aqui: /api/run ya valido la caja completa. Pasa
-        # si el origen se movio despues de esa validacion.
         send_ws_message({"type": "error",
                          "message": f"Fuera del area util. {e}"})
     except Exception as e:
         send_ws_message({"type": "error",
                          "message": f"Error de ejecucion: {e}"})
     finally:
-        # dejar SIEMPRE la pluma arriba, aunque se haya abortado
         try:
             pr.pen_up()
             pl.invalidate_pen_cache()
@@ -662,14 +561,10 @@ def run_gcode():
     if not loaded_gcode:
         raise HTTPException(status_code=400, detail="No hay G-code cargado")
 
-    lines = loaded_gcode                # snapshot: el global puede cambiar
+    lines = loaded_gcode                
     transform = gcode_transform
     pl, pr = plotter, proto
 
-    # PRE-VUELO. Antes esta comprobacion solo existia en plot_gcode_lines(),
-    # que es el camino de la CLI: por HTTP no se ejecutaba NUNCA. Un fichero
-    # marcado "no cabe" al subirlo se dibujaba igual, el carro llegaba al
-    # tope y la maquina se descalibraba entera.
     if pl.enforce_soft_limits:
         b = bounds_of(lines, pl.z_pen_down_threshold, pl.chord_tol, transform)
         violation = check_bounds(b, pl.max_x, pl.max_y)
@@ -680,20 +575,19 @@ def run_gcode():
                 "violation": violation.as_dict(),
                 "bounds": b.as_dict(),
                 "work_area": {"max_x_mm": pl.max_x, "max_y_mm": pl.max_y},
-                # el frontend usa esto para ofrecer "Ajustar al area"
                 "can_autofit": True,
             })
 
-    pl.abort_check = _job_aborted       # [SW-49] aborto entre segmentos
+    pl.abort_check = _job_aborted       
 
-    _claim_job()                        # [SW-48] marca ANTES de arrancar
+    _claim_job()                        #
     try:
         job_thread = threading.Thread(target=run_gcode_thread,
                                       args=(lines, abort_event, pl, pr, transform),
                                       daemon=True)
         job_thread.start()
     except Exception:
-        _release_job()                  # si no arranco, liberar el puerto
+        _release_job()                  
         raise
     return {"ok": True, "total_lines": len(lines)}
 
@@ -705,7 +599,7 @@ def stop_gcode():
     return {"ok": True, "was_running": era_activo}
 
 
-# ─── POSICION ────────────────────────────────────────────────────────
+# posicion
 
 class RecoverReq(BaseModel):
     action: str = Field(pattern='^(accept|reset)$')
@@ -717,13 +611,10 @@ def recover_position(req: RecoverReq):
     _require_idle()
 
     if req.action == "accept":
-        # load_last_position() ya valida el fichero [SW-38], asi que si
-        # devuelve algo, pos_x/pos_y estan y son enteros.
         last_pos = CNCProtocol.load_last_position()
         if not last_pos:
             raise HTTPException(status_code=400,
                                 detail="No hay posicion guardada (o es demasiado vieja)")
-        # [SW-1] X e Y salen del fichero; la Z REAL la sabe el MCU.
         proto.pos_x = last_pos["pos_x"]
         proto.pos_y = last_pos["pos_y"]
         proto.sync_firmware()
@@ -742,8 +633,8 @@ def recover_position(req: RecoverReq):
 
 @app.post("/api/set-origin")
 def set_origin():
-    """Define la posicion XY actual como origen. NO toca la Z: el cero de
-    la pluma se fija aparte con /api/z-set-zero, que es otra operacion."""
+    """fija la posicion xy actual como origen, no toca Z - el cero de
+    pluma se fija aparte con /api/z-set-zero"""
     _require_conn()
     _require_idle()
     proto.reset_position()
@@ -763,20 +654,19 @@ def go_home():
 
 @app.post("/api/motors-off")
 def motors_off():
-    """Apaga SOLO X e Y. El eje Z sigue energizado para que la pluma no
-    caiga por gravedad [SW-9]. Para apagar Z usa /api/z-off."""
+    """apaga solo x/y, Z sigue energizado para que la pluma no caiga por
+    gravedad. para apagar Z esta /api/z-off aparte"""
     _require_conn()
     _require_idle()
     proto.motors_off()
     return _status_dict()
 
 
-# ─── JOG ─────────────────────────────────────────────────────────────
+# jog
 
 class JogReq(BaseModel):
     axis: str = Field(pattern='^[xyzXYZ]$')
     direction: int
-    # [SW-51] 0 no tiene sentido y 500 mm en una maquina de 40 mm tampoco
     distance_mm: float = Field(gt=0.0, le=500.0)
 
 
@@ -787,9 +677,6 @@ def jog(req: JogReq):
     cfg = load_config()
 
     axis = req.axis.lower()
-    # [SW-50] La direccion es un SENTIDO, no un factor. Con direction=2,
-    # step_x() hacia pos_x += 2*pasos y la posicion cacheada se separaba
-    # del eje real: a partir de ahi todo el dibujo salia desplazado.
     direction = 1 if req.direction > 0 else -1
 
     if axis in ('x', 'y'):
@@ -801,16 +688,11 @@ def jog(req: JogReq):
         actual_mm = pos_steps / spm
         future_mm = (pos_steps + direction * steps) / spm
 
-        # A diferencia de antes, el limite del jog respeta enforce_soft_limits:
-        # era el unico sitio de la app donde el ajuste no se tenia en cuenta.
         if plotter.enforce_soft_limits and (future_mm < -TOLERANCE_MM
                                             or future_mm > limite + TOLERANCE_MM):
             queda = remaining_mm(actual_mm, direction, limite)
             raise HTTPException(status_code=400, detail={
                 "error": "fuera_de_area",
-                # 'cuanto queda' en vez de solo 'no': el usuario esta delante
-                # de la maquina intentando llegar a un sitio, y saber que le
-                # quedan 3.2 mm es accionable; un 400 pelado no lo es.
                 "message": (f"El eje {axis.upper()} llegaria a {future_mm:.1f} mm y "
                             f"el area es [0, {limite:g}] mm. "
                             f"En ese sentido quedan {queda:.1f} mm."),
@@ -827,8 +709,6 @@ def jog(req: JogReq):
             plotter.gc_y = proto.pos_y / plotter.spm_y
 
     else:
-        # [SW-6] escala propia de Z y limite propio. Antes usaba spm_x
-        # y no tenia limite ninguno: se podia clavar contra el tope.
         spm_z = cfg["steps_per_mm_z"]
         steps = min(255, round(abs(req.distance_mm) * spm_z))
         if steps <= 0:
@@ -844,23 +724,21 @@ def jog(req: JogReq):
                         f"Si tocaste el tope mecanico, usa /api/z-set-zero "
                         f"para redefinir el cero de la pluma."))
         proto.step_z(direction, steps)
-        # el jog manual mueve Z por su cuenta: lo cacheado deja de valer
         plotter.invalidate_pen_cache()
 
     return _status_dict()
 
 
-# ─── PLUMA / EJE Z ───────────────────────────────────────────────────
+# pluma / eje z
 
 class PenReq(BaseModel):
-    action: str          # "up" | "down" | "toggle"
+    action: str          
 
 
 @app.post("/api/pen")
 def pen_action(req: PenReq):
     _require_conn()
-    _require_idle()          # [SW-3b] ESTA era la guarda que faltaba
-    # via plotter, no via proto: asi el cache de pluma [SW-46] se entera
+    _require_idle()          
     if req.action == 'up':
         plotter.pen_up()
     elif req.action == 'down':
@@ -874,14 +752,12 @@ def pen_action(req: PenReq):
 
 
 class PenJogReq(BaseModel):
-    # positivo = subir, negativo = bajar. Un paso de Z son decimas de mm:
-    # 255 es el maximo que cabe en el payload de una trama.
     steps: int = Field(ge=-255, le=255)
 
 
 @app.post("/api/pen-jog")
 def pen_jog(req: PenJogReq):
-    """Micro-jog del eje Z para calibrar la altura de la pluma."""
+    """micro-jog de Z para calibrar la altura de la pluma"""
     _require_conn()
     _require_idle()
     if req.steps == 0:
@@ -908,29 +784,13 @@ class PenHolderReq(BaseModel):
 
 @app.post("/api/pen-holder")
 def pen_holder(req: PenHolderReq):
-    """[SW-30] Sentido fisico del eje Z segun como este montado el
-    porta-pluma.
-
-    EL PROBLEMA QUE RESUELVE: el mecanismo del eje Z se puede montar de
-    dos formas, y en una de ellas el giro que deberia SUBIR la pluma la
-    BAJA. Sin este ajuste, "pen up" dejaba la punta clavada en el papel
-    y "pen down" la levantaba: los rapidos rayaban el dibujo y los
-    trazos salian en blanco.
-
-    COMO FUNCIONA: la inversion la hace el firmware (C_ZDIR), no el PC.
-    Asi Z_POS = 0 sigue siendo "pluma arriba" y Z_POS = PEN_N sigue
-    siendo "pluma abajo" en los dos montajes, con lo que pen_up/pen_down
-    siguen siendo absolutos e idempotentes y el flujo de calibracion es
-    exactamente el mismo.
-
-    QUE HACE AL LLAMARLO: sube la pluma con el sentido ANTIGUO (para
-    dejar Z_POS en 0 y no quedarse a medias), cambia el sentido y lo
-    guarda en la config.
-
-    DESPUES: revisa el cero de pluma. El sentido nuevo se aplica desde
-    la posicion actual, asi que conviene hacer jog hasta la altura de
-    seguridad y volver a llamar a /api/z-set-zero.
-    """
+    """sentido fisico de Z segun como quedo el porta-pluma - si esta al
+    reves "pen up" clava la punta y "pen down" la levanta. la inversion
+    la hace el firmware (C_ZDIR) no el pc, asi Z_POS=0/PEN_N siguen
+    significando lo mismo en los dos montajes. al llamarlo sube la pluma
+    con el sentido viejo primero (para no quedar a medias), cambia el
+    sentido y lo guarda. despues conviene revisar el cero con jog +
+    /api/z-set-zero, el sentido nuevo aplica desde la posicion actual"""
     _require_conn()
     _require_idle()
 
@@ -965,18 +825,10 @@ def pen_holder(req: PenHolderReq):
 
 @app.post("/api/z-set-zero")
 def z_set_zero():
-    """Define la altura actual de la pluma como 'arriba' (Z_POS = 0).
-
-    Flujo de calibracion de pluma:
-      1. jog de Z hasta la altura de seguridad
-      2. este endpoint
-      3. ajustar pen_steps con /api/pen-config
-      4. probar con /api/pen-test-cycle
-    Si el porta-pluma esta montado al reves, ANTES de todo esto hay que
-    invertir el sentido con /api/pen-holder.
-
-    A partir de aqui pen_up/pen_down son ABSOLUTOS: aunque se pierda un
-    ACK o reinicies la app, siempre acaban en la posicion correcta."""
+    """fija la altura actual como "arriba" (Z_POS=0). flujo: jog hasta
+    altura segura -> este endpoint -> /api/pen-config -> /api/pen-test-cycle.
+    si el porta-pluma esta al reves hay q invertir antes con /api/pen-holder.
+    desde aca pen_up/pen_down quedan absolutos aunque se pierda un ACK"""
     _require_conn()
     _require_idle()
     ok = plotter.z_set_zero()
@@ -985,27 +837,23 @@ def z_set_zero():
 
 @app.post("/api/z-off")
 def z_off():
-    """Apaga las bobinas del eje Z para que no se caliente.
-    ATENCION: la pluma puede caer por gravedad. Despues hay que
-    recolocarla y llamar a /api/z-set-zero."""
+    """apaga las bobinas de Z, ojo que la pluma puede caer por gravedad,
+    despues hay que recolocarla y llamar /api/z-set-zero"""
     _require_conn()
     _require_idle()
     ok = proto.z_off()
-    plotter.invalidate_pen_cache()   # la pluma puede caerse: nada es fiable
+    plotter.invalidate_pen_cache()   
     return {"ok": ok,
             "warning": "Z desenergizado: recoloca la pluma y vuelve a fijar el cero"}
 
 
 @app.post("/api/pen-test-cycle")
 def pen_test_cycle():
-    """Ciclo completo ABAJO -> pausa -> ARRIBA para verificar la pluma.
-
-    Es tambien la comprobacion del sentido del porta-pluma: si "abajo"
-    levanta la punta y "arriba" la clava, hay que invertir el eje Z con
-    /api/pen-holder."""
+    """ciclo abajo -> pausa -> arriba, sirve tambien para chequear el
+    sentido del porta-pluma (si "abajo" levanta y "arriba" clava, hay que
+    invertir con /api/pen-holder)"""
     _require_conn()
     _require_idle()
-    # sin cache: este endpoint existe justo para mandar las dos tramas
     plotter.invalidate_pen_cache()
     plotter.pen_down()
     time.sleep(0.5)
@@ -1017,35 +865,26 @@ def pen_test_cycle():
         "pen_down": proto.pen_down_flag,
         "pen_invert": proto.z_invert,
         "mcu_z_pos": st["z_pos"] if st else None,
-        # tras el ciclo Z_POS debe volver a 0; si no, se perdieron pasos.
-        # Sin respuesta del MCU no se sabe: None, no False.
         "steps_lost": (st["z_pos"] != 0) if st else None,
     }
 
 
 class PenTestLineReq(BaseModel):
-    # Corta a proposito: es para mirar el trazo, no para gastar papel.
     length_mm: float = Field(default=20.0, gt=0.0, le=200.0)
 
 
 @app.post("/api/pen-test-line")
 def pen_test_line(req: PenTestLineReq = PenTestLineReq()):
-    """Traza una linea corta AQUI MISMO y vuelve al punto de partida.
-
-    Es lo que hace falta para ajustar la presion de la pluma: el ciclo de
-    prueba dice si el eje Z pierde pasos, pero no si el trazo sale marcado,
-    flojo o rayando el papel — eso solo se ve dibujando.
-
-    A diferencia de /api/calibrate/steps/draw-line, NO redefine el origen:
-    ajustar la pluma no deberia obligar a recalibrar la posicion."""
+    """traza una linea corta aca mismo y vuelve al punto de partida, sirve
+    para ajustar presion (el ciclo de prueba dice si Z pierde pasos pero
+    no si el trazo sale marcado o rayando, eso solo se ve dibujando). a
+    diferencia de calibrate/steps/draw-line esto NO redefine el origen"""
     _require_conn()
     _require_idle()
 
     inicio_x, inicio_y = plotter.gc_x, plotter.gc_y
     destino_x = inicio_x + req.length_mm
 
-    # Si no cabe hacia la derecha, se traza hacia la izquierda antes que
-    # rechazar la peticion: el usuario esta ajustando presion, no navegando.
     if plotter.enforce_soft_limits and destino_x > plotter.max_x + TOLERANCE_MM:
         destino_x = inicio_x - req.length_mm
         if destino_x < -TOLERANCE_MM:
@@ -1067,35 +906,25 @@ def pen_test_line(req: PenTestLineReq = PenTestLineReq()):
 
 
 class PenConfigReq(BaseModel):
-    # Desde 1 y no desde 10: el ajuste fino de presion necesita bajar de 10
-    # pasos en un porta-pluma sensible, y el firmware acepta 1..255 (PEN_N
-    # es un byte y cnc_config._RANGES ya valida 1-255).
     pen_steps: int = Field(ge=1, le=255)
 
 
 @app.post("/api/pen-config")
 def pen_config(req: PenConfigReq):
-    """[SW-5] Antes esto guardaba el valor en el JSON y NUNCA llegaba al
-    firmware, que tenia PEN_N hardcodeado a 100. Ahora se envia y se
-    verifica que el MCU lo confirma."""
+    """esto si llega hasta el firmware y se verifica que el mcu lo confirma"""
     _require_conn()
     _require_idle()
 
     if not plotter.set_pen_steps(req.pen_steps):
         raise HTTPException(status_code=502, detail="El MCU no confirmo el cambio")
 
-    # se guarda lo que el MCU confirmo, no lo que se pidio
     save_config({"pen_steps": proto.pen_steps})
     return {"ok": True, "pen_steps": proto.pen_steps}
 
 
-# ─── AJUSTES ─────────────────────────────────────────────────────────
+# ajustes
 
 class SettingsReq(BaseModel):
-    # [SW-51] Los rangos son los mismos que valida cnc_config._RANGES.
-    # Sin ellos, un steps_per_mm=0 pasaba tal cual al plotter y cada
-    # peticion posterior moria con ZeroDivisionError al convertir
-    # pasos->mm: la API quedaba inservible hasta reiniciarla.
     steps_per_mm_x: float = Field(gt=0.0, le=5000.0)
     steps_per_mm_y: float = Field(gt=0.0, le=5000.0)
     steps_per_mm_z: float = Field(default=100.0, gt=0.0, le=5000.0)
@@ -1106,19 +935,12 @@ class SettingsReq(BaseModel):
     z_pen_down_threshold: Optional[float] = Field(default=None,
                                                   ge=-1000.0, le=1000.0)
     enforce_soft_limits: Optional[bool] = None
-    # Sentido de los ejes TAL COMO LOS VE EL USUARIO. No cambian nada de la
-    # cinematica: el espacio de pasos y los mm siguen viviendo en [0, max].
-    # Solo dicen en que esquina se dibuja el (0,0) y hacia donde tiene que
-    # mover cada flecha del D-pad. Ver frontend/src/coords.js.
     invert_x: Optional[bool] = None
     invert_y: Optional[bool] = None
 
 
 @app.post("/api/settings")
 def settings(req: SettingsReq):
-    # Sin _require_conn(): el area de trabajo y el sentido de los ejes son
-    # ajustes de presentacion, y obligar a tener la maquina enchufada para
-    # cambiarlos no protegia de nada — solo impedia preparar la sesion.
     _require_idle()
 
     cambios = {
@@ -1150,7 +972,6 @@ def settings(req: SettingsReq):
             plotter.z_pen_down_threshold = req.z_pen_down_threshold
         if req.enforce_soft_limits is not None:
             plotter.enforce_soft_limits = req.enforce_soft_limits
-        # cambiar la escala mueve el significado de la posicion actual
         plotter._sync_gc_from_steps()
 
     if not save_config(cambios):
@@ -1167,9 +988,9 @@ class SpeedReq(BaseModel):
 
 @app.post("/api/speed")
 def speed(req: SpeedReq):
-    """La velocidad de Z va aparte y vive en el firmware (VEL_Z), para que
-    el eje Z no herede nunca la velocidad rapida de X/Y [SW-2].
-    Minimo 4 ms: por debajo el 28BYJ-48 pierde par y se traba."""
+    """la velocidad de Z va aparte, vive en el firmware (VEL_Z) para que
+    Z nunca herede la velocidad rapida de x/y. minimo 4ms, mas rapido y
+    el 28BYJ-48 pierde par y se traba"""
     _require_conn()
     _require_idle()
     plotter.speed_draw = max(2, req.draw)
@@ -1188,17 +1009,15 @@ def speed(req: SpeedReq):
     return {"ok": True, **payload}
 
 
-# ─── PATRONES DE PRUEBA ──────────────────────────────────────────────
+# patrones de prueba
 
 class TestPatternReq(BaseModel):
     pattern: str
-    # [SW-51] size=0 dibujaba nada durante un rato; size=1e9 lanzaba
-    # millones de tramas sin forma de pararlo mas que con /api/stop
     size: float = Field(gt=0.0, le=1000.0)
 
 
 def run_pattern_thread(pattern, size, pl: CNCPlotter, pr: CNCProtocol):
-    """[SW-52] pl/pr por parametro, igual que run_gcode_thread."""
+    """pl/pr por parametro, igual razon que run_gcode_thread"""
     job_state.update({"total_lines": 1, "lines_processed": 0,
                       "progress": 0.0, "total_steps": 0, "elapsed": 0.0})
     pl.begin_job()
@@ -1228,9 +1047,7 @@ def run_pattern_thread(pattern, size, pl: CNCPlotter, pr: CNCProtocol):
                          "warnings": pl.warnings})
 
 
-# El patron se valida en el endpoint, antes de arrancar el hilo: asi un
-# nombre mal escrito da un 400 inmediato en vez de un error por WebSocket
-# cuando el usuario ya cree que la maquina esta trabajando.
+
 PATTERNS = {
     "square":   lambda pl: pl.draw_square,
     "triangle": lambda pl: pl.draw_triangle,
@@ -1239,11 +1056,7 @@ PATTERNS = {
     "grid":     lambda pl: pl.draw_calibration_grid,
 }
 
-# Cuanto ocupa cada patron, en mm, para el tamano pedido. Hace falta porque
-# 'size' NO significa lo mismo en todos: es el lado del cuadrado, pero el
-# RADIO del circulo y el ESPACIADO de cada celda de la rejilla. Sin esto un
-# "circulo de 60" en una maquina de 80 mm se sale (mide 121 mm de ancho), y
-# hasta ahora se aceptaba y se dibujaba contra el tope.
+
 PATTERN_EXTENTS = {
     "square":   lambda s: (s, s),
     "triangle": lambda s: (s, s * math.sqrt(3) / 2),
@@ -1259,12 +1072,9 @@ def _pattern_bounds(pattern: str, size: float) -> Bounds:
 
 
 def _pattern_max_size(pattern: str, max_x: float, max_y: float) -> float:
-    """Tamano maximo de ese patron que cabe en el area.
-
-    Se DERIVA de PATTERN_EXTENTS resolviendo la recta (todas las extensiones
-    son afines en size) en vez de mantener una segunda tabla de maximos: dos
-    tablas se desincronizan en cuanto alguien toque un patron, y el sintoma
-    seria un boton habilitado para un dibujo que no cabe."""
+    """maximo tamano de ese patron que entra en el area. se deriva de
+    PATTERN_EXTENTS resolviendo la recta en vez de mantener otra tabla
+    aparte que se desincronizaria apenas alguien toque un patron"""
     f = PATTERN_EXTENTS[pattern]
     w0, h0 = f(0.0)
     w1, h1 = f(1.0)
@@ -1278,10 +1088,9 @@ def _pattern_max_size(pattern: str, max_x: float, max_y: float) -> float:
 
 @app.get("/api/patterns")
 def list_patterns():
-    """Los patrones y hasta que tamano cabe cada uno en el area actual.
-
-    El frontend lo necesita para deshabilitar el boton en vez de dejar
-    pulsar y devolver un 409: 'un estado invalido no deberia poder pedirse'."""
+    """los patrones y hasta que tamano entra cada uno en el area actual,
+    el frontend lo usa para deshabilitar el boton en vez de dejar pulsar
+    y devolver un 409 despues"""
     cfg = load_config()
     return {"ok": True, "patterns": [
         {"id": nombre,
@@ -1303,9 +1112,7 @@ def test_pattern(req: TestPatternReq):
 
     pl, pr = plotter, proto
 
-    # Mismo pre-vuelo que /api/run. 'size' no es el ancho en todos los
-    # patrones (en el circulo es el radio, en la rejilla el espaciado), asi
-    # que el limite de 1000 mm del modelo no dice nada sobre si cabe.
+ 
     if pl.enforce_soft_limits:
         b = _pattern_bounds(req.pattern, req.size)
         violation = check_bounds(b, pl.max_x, pl.max_y)
@@ -1325,7 +1132,7 @@ def test_pattern(req: TestPatternReq):
 
     pl.abort_check = _job_aborted
 
-    _claim_job()                        # [SW-48]
+    _claim_job()
     try:
         job_thread = threading.Thread(
             target=run_pattern_thread,
@@ -1337,15 +1144,13 @@ def test_pattern(req: TestPatternReq):
     return {"ok": True}
 
 
-# ─── CALIBRACION ─────────────────────────────────────────────────────
+# calibracion
 
 CAL_LINE_MM = 30.0
 
 
 class CalStepsDrawReq(BaseModel):
-    # X e Y se calibran por SEPARADO. Esta maquina es de cremallera y pinon
-    # con dos ejes distintos: aplicar la medida de X tambien a Y —que es lo
-    # que se hacia— dejaba Y sistematicamente mal calibrado.
+
     axis: str = Field(default='x', pattern='^[xyXY]$')
 
 
@@ -1356,14 +1161,13 @@ class CalStepsApplyReq(BaseModel):
 
 @app.post("/api/calibrate/steps/draw-line")
 def cal_steps_draw(req: CalStepsDrawReq = CalStepsDrawReq()):
-    """Paso 1: dibuja una linea de referencia de 30 mm en el eje pedido."""
+    """paso 1: dibuja una linea de referencia de 30mm en el eje pedido"""
     _require_conn()
     _require_idle()
     axis = req.axis.lower()
     limite = plotter.max_x if axis == 'x' else plotter.max_y
 
-    # La linea de referencia tambien tiene que caber: en un area pequena
-    # estos 30 mm iban derechos contra el tope.
+
     if plotter.enforce_soft_limits and CAL_LINE_MM > limite + TOLERANCE_MM:
         raise HTTPException(status_code=409, detail={
             "error": "fuera_de_area",
@@ -1390,7 +1194,7 @@ def cal_steps_draw(req: CalStepsDrawReq = CalStepsDrawReq()):
 
 @app.post("/api/calibrate/steps/apply")
 def cal_steps_apply(req: CalStepsApplyReq):
-    """Paso 2: el usuario midio la linea; se recalcula steps_per_mm del eje."""
+    """paso 2: el usuario midio la linea, se recalcula steps_per_mm del eje"""
     _require_conn()
     _require_idle()
     axis = req.axis.lower()
@@ -1429,7 +1233,7 @@ class CalBacklashMoveReq(BaseModel):
 
 @app.post("/api/calibrate/backlash/move")
 def cal_backlash_move(req: CalBacklashMoveReq):
-    """Mueve N pasos SIN compensacion de backlash, para poder medirlo puro."""
+    """mueve N pasos sin compensar backlash, para poder medirlo puro"""
     _require_conn()
     _require_idle()
     axis = req.axis.lower()
@@ -1446,14 +1250,13 @@ def cal_backlash_move(req: CalBacklashMoveReq):
     while remaining > 0:
         chunk = min(remaining, 255)
         if not proto.send_command(cmd, chunk, retries=1):
-            break                       # [SW-18] no sumar lo que no se movio
+            break                      
         moved += chunk
         remaining -= chunk
 
     if axis == 'x':
         proto.pos_x += direction * moved
-        # este endpoint mueve el eje saltandose step_x(), asi que la
-        # direccion cacheada para el backlash tambien hay que anotarla
+
         proto._update_dir('x', direction)
     else:
         proto.pos_y += direction * moved
@@ -1483,7 +1286,7 @@ def cal_backlash_apply(req: CalBacklashApplyReq):
             "backlash_y": proto.backlash_y}
 
 
-# ─── WEBSOCKET ───────────────────────────────────────────────────────
+# websocket
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -1503,7 +1306,7 @@ async def websocket_endpoint(websocket: WebSocket):
             active_websockets.remove(websocket)
 
 
-# ─── FRONTEND ────────────────────────────────────────────────────────
+# frontend
 
 frontend_dir = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "frontend"))

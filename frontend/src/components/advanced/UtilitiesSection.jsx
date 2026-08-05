@@ -6,12 +6,12 @@ import Banner from '../ui/Banner.jsx'
 import Reveal from '../ui/Reveal.jsx'
 import DisabledHint from '../ui/DisabledHint.jsx'
 
-// Herramientas de diagnostico.
+// herramientas de diagnostico.
 //
-// «Volver a sincronizar» es la respuesta a cualquier sospecha de que la
-// pantalla y la maquina dejaron de coincidir: relee del microcontrolador la
-// altura real de la pluma, su sentido y las velocidades, en vez de confiar en
-// lo que el PC tenia cacheado.
+// "volver a sincronizar" es la respuesta cuando sospechas que la pantalla
+// y la maquina ya no coinciden: relee del microcontrolador la altura real
+// de la pluma, su sentido y las velocidades, en vez de confiar en lo que
+// el pc tenia cacheado
 export default function UtilitiesSection() {
   const { status, canOperate, runAction, reason } = useStatus()
   const [pingResult, setPingResult] = useState(null)
@@ -33,7 +33,7 @@ export default function UtilitiesSection() {
       setRaw(await api.getConfig())
       setShowRaw(true)
     } catch {
-      /* silencioso: es una utilidad de diagnostico */
+      /* es una utilidad de diagnostico, no hace falta avisar */
     }
   }
 

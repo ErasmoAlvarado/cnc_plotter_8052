@@ -5,20 +5,13 @@ import Sheet from '../ui/Sheet.jsx'
 import Button from '../ui/Button.jsx'
 import PlotCanvas from '../canvas/PlotCanvas.jsx'
 
-// Al conectar, el backend puede ofrecer la ultima posicion guardada en disco
-// (.last_position, valido 2 h). Decidir a ciegas entre "continuar" y "empezar
-// de cero" es dificil, asi que se dibuja: el minimapa muestra en que punto del
-// area quedo la pluma la ultima vez.
+// el backend puede ofrecer la ultima posicion guardada en disco, el minimapa
+// muestra donde quedo la pluma para elegir sin adivinar
 //
-// El dialogo se queda montado y se cierra con `open`, en vez de desaparecer del
-// arbol en cuanto `recovery` vuelve a null. Desmontandolo, Radix no llegaba
-// nunca a reproducir su animacion de salida: el usuario elegia una opcion y el
-// dialogo se esfumaba de golpe, que es justo el momento en el que conviene ver
-// que la eleccion se registro.
+// queda montado siempre y se cierra con `open`, si lo desmontas radix no
+// llega a animar la salida
 //
-// Por eso hace falta recordar los ultimos datos: durante el cierre ya no hay
-// `recovery`, pero el contenido tiene que seguir dibujandose hasta que la
-// animacion termine.
+// por eso guarda los ultimos datos, durante el cierre `recovery` ya es null
 export default function RecoveryDialog({ recovery, onClose }) {
   const { status, runAction, refreshStatus } = useStatus()
   const last = useRef(null)
@@ -88,8 +81,7 @@ export default function RecoveryDialog({ recovery, onClose }) {
         </div>
       </div>
 
-      {/* Z nunca se toma del fichero: la altura real la sabe el microcontrolador
-          y ya se releyo al conectar. */}
+      {/* Z nunca sale del archivo, se relee del microcontrolador al conectar */}
       <p className="hint">
         La altura de la pluma no se recupera del archivo — se vuelve a leer de la máquina al
         conectar, así que siempre es la real.

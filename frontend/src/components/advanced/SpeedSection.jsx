@@ -6,17 +6,17 @@ import Field from '../ui/Field.jsx'
 import Stepper from '../ui/Stepper.jsx'
 import DisabledHint from '../ui/DisabledHint.jsx'
 
-// Velocidades en milisegundos entre medios pasos: numero mas bajo = mas rapido.
+// velocidades en ms entre medios pasos, numero mas bajo = mas rapido.
 //
-// El eje Z tiene la suya propia y con un minimo mas alto (4 ms) porque es el
-// unico que trabaja contra la gravedad cargando el peso de la pluma: por debajo
-// de eso el 28BYJ-48 pierde par y se traba a mitad de recorrido.
+// Z tiene su propia velocidad y con un minimo mas alto (4ms) porque es el
+// unico eje que pelea contra la gravedad con el peso de la pluma, por
+// debajo de eso el 28BYJ-48 pierde torque y se traba a mitad de camino
 export default function SpeedSection() {
   const { status, canOperate, runAction, reason } = useStatus()
   const [form, setForm] = useState(null)
 
-  // El formulario se inicializa una vez y despues es local: si se refrescara en
-  // cada polling, el valor se sobrescribiria mientras el usuario lo escribe.
+  // se inicializa una vez y despues es local, si se refrescara con cada
+  // polling se pisaria el valor mientras el usuario lo esta escribiendo
   useEffect(() => {
     if (!form && status) {
       setForm({

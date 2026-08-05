@@ -7,31 +7,17 @@ import Banner from '../ui/Banner.jsx'
 import Field from '../ui/Field.jsx'
 import Reveal from '../ui/Reveal.jsx'
 
-// Ajuste fino de la pluma.
+// ajuste fino de la pluma. pasarse de pasos rompe la hoja, quedarse corto
+// no llega a escribir.
 //
-// El porta-pluma es la pieza mas delicada de la maquina: unos pocos pasos de
-// mas rompen la hoja o hacen perder pasos al eje Z, y unos pocos de menos y no
-// escribe. Hasta ahora esa presion se ajustaba con un Stepper de cinco en
-// cinco, escondido en el paso 3 del asistente y sin forma de ver el resultado
-// sin montar un dibujo entero.
+// resolucion de 1 paso, probar sin guardar y guardar cuando ya esta bien.
 //
-// Las tres piezas que faltaban:
-//   - resolucion de UN paso, con el deslizador para buscar a ojo y las teclas
-//     para afinar,
-//   - probar sin guardar (bajar, subir, y sobre todo TRAZAR: el ciclo de
-//     prueba dice si el eje pierde pasos, no si el trazo sale marcado),
-//   - guardar cuando ya esta bien.
-//
-// La unidad es el PASO, no el grado: el eje Z lo mueve un 28BYJ-48 contra la
-// palanca del porta-pluma, y pen_steps es exactamente lo que el firmware
-// guarda en PEN_N.
+// la unidad es PASO y no grado, pen_steps es literal lo que guarda el firmware
 const FINOS = [-5, -1, 1, 5]
 
 export default function PenTuner({ embedded = false }) {
   const { status, canOperate, busy, runAction, refreshConfig, penDown } = useStatus()
-  // Sembrado UNA vez desde la maquina: con useState(status?.pen_steps) a secas,
-  // montar antes del primer /api/status dejaba el campo clavado en el valor por
-  // defecto y "Guardar" escribia ese, no el de la maquina.
+  // sembrado una sola vez, si no Guardar manda el default en vez del real
   const [pasos, setPasos, resyncPasos] = useSyncedValue(status?.pen_steps, 100)
   const [linea, setLinea] = useState(null)
   const [guardado, setGuardado] = useState(false)

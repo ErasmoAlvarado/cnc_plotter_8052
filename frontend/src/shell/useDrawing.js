@@ -3,13 +3,13 @@ import { api } from '../api'
 import { useStatus } from '../StatusContext.jsx'
 import usePlotPlayback from '../components/canvas/usePlotPlayback.js'
 
-// Cuantos trazos del preview ya se dibujaron, a partir de la linea de G-code
-// que reporta el WebSocket. Los trazos vienen ordenados por 'line' ascendente,
-// asi que una busqueda binaria basta y no cuesta nada aunque haya 5000.
+// cuantos trazos del preview ya estan dibujados, segun la linea de gcode que
+// manda el websocket. vienen ordenados por 'line' asi que alcanza con
+// busqueda binaria aunque haya 5000
 //
-// Si el backend es anterior al campo 'line', esto devuelve 0 y el lienzo se
-// queda en modo "solo estela": se sigue viendo por donde va la maquina, solo
-// que sin colorear el trazado planificado.
+// si el backend es viejo y no manda 'line' esto da 0 y el canvas queda en
+// modo "solo estela" nomas, se ve por donde va la maquina pero sin colorear
+// el trazado planeado
 function completedPaths(paths, currentLine) {
   if (!paths.length || paths[0].line === undefined || !currentLine) return 0
   let lo = 0
@@ -22,20 +22,17 @@ function completedPaths(paths, currentLine) {
   return lo
 }
 
-// Estado del dibujo, compartido entre el rail (resumen del archivo) y el
-// escenario (lienzo y botones). Antes vivia dentro de GcodeCard, que era un
-// unico componente; ahora que la vista esta partida en dos, vive un escalon mas
-// arriba y baja por props.
-//
-// Lo que se movio aca es exactamente lo que habia, sin cambios de logica: subir
-// el archivo, el corte pendiente/dibujado y la posicion del cabezal.
+// estado del dibujo, compartido entre el rail (resumen del archivo) y el
+// stage (canvas y botones). antes vivia todo junto en GcodeCard, ahora que
+// la vista esta partida en dos subimos esto un escalon y baja por props.
+// es el mismo codigo de antes nomas movido, sin cambiar logica
 export default function useDrawing() {
   const { gcode, setGcode, live, resetLive, status, runAction } = useStatus()
   const [uploading, setUploading] = useState(false)
   const penSteps = status?.pen_steps ?? 100
 
-  // Espejo en Y y "Ajustar al area" son por fichero, no de la maquina: el
-  // espejo depende de con que se exporto el G-code y el ajuste, de si cabe.
+  // espejo en Y y "ajustar al area" son del archivo, no de la maquina --
+  // el espejo depende de con que se exporto el gcode y el ajuste de si cabe
   const [flipY, setFlipY] = useState(false)
   const [fitted, setFitted] = useState(false)
 
@@ -50,11 +47,11 @@ export default function useDrawing() {
         const result = await runAction(() => api.uploadGcode(file))
         resetLive()
         setGcode(result)
-        // Fichero nuevo, transformacion nueva: el backend tambien la reinicia.
+        // archivo nuevo = transformacion nueva, el backend tambien la resetea
         setFlipY(false)
         setFitted(false)
       } catch {
-        // runAction ya puso el banner
+        // el banner ya lo puso runAction
       } finally {
         setUploading(false)
       }
@@ -62,13 +59,12 @@ export default function useDrawing() {
     [runAction, resetLive, setGcode],
   )
 
-  // El seguimiento en vivo manda sobre la reproduccion en seco: si la maquina
-  // esta dibujando de verdad, eso es lo que hay que mirar.
+  // el seguimiento en vivo manda sobre la reproduccion en seco: si la
+  // maquina esta dibujando de verdad, eso es lo que importa mostrar.
   //
-  // Se mantiene tambien cuando el trabajo YA termino (live.line > 0 con
-  // active en false): al acabar, el dibujo se queda pintado en vez de volver a
-  // gris de golpe, que es lo que uno espera ver despues de dibujarlo. Un
-  // trabajo nuevo limpia live y vuelve a empezar de cero.
+  // se mantiene tambien cuando el job ya termino (live.line > 0 con active
+  // false), asi el dibujo queda pintado en vez de volver a gris de golpe.
+  // un job nuevo limpia live y arranca de cero otra vez
   const tracking = !playback.playing && (live.active || live.line > 0)
 
   const donePathCount = tracking
@@ -84,9 +80,9 @@ export default function useDrawing() {
     return playback.head
   }, [tracking, live.x, live.y, live.zSteps, penSteps, playback.head])
 
-  // Aplicar espejo en Y o "Ajustar al area" al fichero ya cargado. El backend
-  // devuelve el preview nuevo, asi que el lienzo pinta el resultado antes de
-  // que el usuario confirme nada.
+  // aplica espejo Y o "ajustar al area" al archivo ya cargado. el backend
+  // devuelve el preview nuevo asi el canvas ya pinta el resultado antes de
+  // que el usuario confirme nada
   const applyTransform = useCallback(
     async (next) => {
       const flip = next.flipY ?? flipY
@@ -98,15 +94,14 @@ export default function useDrawing() {
         setFlipY(flip)
         setFitted(fit)
       } catch {
-        // runAction ya puso el banner
+        // el banner ya lo puso runAction
       }
     },
     [flipY, fitted, runAction, resetLive, setGcode],
   )
 
-  // El objeto se memoiza porque AppShell lo pasa por props a Rail y a Stage:
-  // una referencia nueva en cada render los re-renderiza a los dos aunque no
-  // haya cambiado el dibujo.
+  // memoizado porque AppShell pasa esto por props a Rail y Stage, una
+  // referencia nueva en cada render re-renderiza a los dos sin necesidad
   return useMemo(
     () => ({
       gcode,

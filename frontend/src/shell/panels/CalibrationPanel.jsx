@@ -1,8 +1,8 @@
 import { useStatus } from '../../StatusContext.jsx'
 import Button from '../../components/ui/Button.jsx'
 
-// El backend guarda la fecha como "YYYY-MM-DD HH:MM" en hora local; el guion
-// medio de ISO hace falta para que Safari la parsee.
+// el backend guarda la fecha como "YYYY-MM-DD HH:MM" en hora local, hace
+// falta el guion de ISO para que safari la parsee bien
 function parseDate(value) {
   if (!value) return null
   const d = new Date(value.replace(' ', 'T'))
@@ -21,12 +21,12 @@ function relativeTime(date) {
   return `hace ${months} mes${months === 1 ? '' : 'es'}`
 }
 
-// Atajo al asistente, con el estado a la vista. Para alguien que estrena la
-// maquina, "Nunca calibrado" es la instruccion de que hacer primero; para el
-// resto es solo una fecha que confirma que no hace falta tocar nada.
+// atajo al wizard con el estado a la vista. para alguien que estrena la
+// maquina "nunca calibrado" es la instruccion de que hacer primero, para
+// el resto es solo una fecha que confirma que no hace falta tocar nada.
 //
-// Sin calibrar es un AVISO, no una averia: va en ambar y sin fondo de color.
-// El rojo queda para lo que se rompio ahora mismo.
+// sin calibrar es un aviso, no una averia, por eso va en ambar sin fondo.
+// el rojo se guarda para lo que se rompio recien
 export default function CalibrationPanel({ onOpen }) {
   const { config, status } = useStatus()
   const date = parseDate(config?.last_calibration_date)

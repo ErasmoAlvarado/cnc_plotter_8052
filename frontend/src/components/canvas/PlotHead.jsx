@@ -1,19 +1,9 @@
 import { memo } from 'react'
 import useSmoothedPoint from './useSmoothedPoint.js'
 
-// El cabezal, en su propio componente y memoizado.
-//
-// No es una separacion cosmetica: useSmoothedPoint llama a setState en CADA
-// frame para interpolar entre las muestras del WebSocket. Mientras vivio
-// dentro de PlotCanvas, eso re-renderizaba el SVG entero a 60 fps —incluidos
-// los cuatro <path> de hasta 5000 trazos, que React tiene que volver a
-// comparar cadena a cadena—. De ahi que la interfaz se atascara justo
-// mientras la maquina dibujaba, que es cuando mas se mira.
-//
-// Aqui el bucle de animacion solo puede repintar estos dos circulos.
+// separado y memoizado porque interpola a 60fps, sino repintaba todo el svg
 function PlotHead({ x, y, penDown, project, radius, pulsing }) {
-  // Numeros sueltos y no un objeto {x,y}: con un objeto, cada render del
-  // padre crea una referencia nueva y el efecto se reiniciaria en cada frame.
+  // numeros sueltos y no {x,y}, un objeto nuevo reiniciaria el efecto cada frame
   const smooth = useSmoothedPoint(x, y)
   if (!smooth) return null
 

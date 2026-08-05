@@ -4,12 +4,12 @@ import Banner from '../ui/Banner.jsx'
 import Button from '../ui/Button.jsx'
 import PenTuner from './PenTuner.jsx'
 
-// El ajuste fino de la pluma como hoja propia.
+// el ajuste fino de la pluma como su propia hoja.
 //
-// Se abre desde el rail y desde los ajustes avanzados; el paso 3 del asistente
-// monta el mismo PenTuner incrustado. Un solo control con tres puertas, como ya
-// hacia PenHolderSection: obligar a recordar en cual de los tres sitios vive el
-// ajuste seria peor que repetir la puerta.
+// se abre desde el rail y desde ajustes avanzados, el paso 3 del wizard
+// monta el mismo PenTuner incrustado. un solo control con 3 puertas, igual
+// que PenHolderSection -- obligar a acordarse en cual de los 3 vive el
+// ajuste seria peor que repetir la puerta
 export default function PenTunerSheet({ open, onClose }) {
   const { connected, canOperate } = useStatus()
 

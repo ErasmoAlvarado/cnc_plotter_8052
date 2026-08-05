@@ -9,8 +9,8 @@ import Field from '../ui/Field.jsx'
 import Toggle from '../ui/Toggle.jsx'
 import Banner from '../ui/Banner.jsx'
 
-// Puerta de entrada a todo lo demas. Vive en una hoja y no en el dashboard
-// porque se usa dos veces por sesion: al empezar y al terminar.
+// puerta de entrada a todo lo demas. va en una hoja y no en el dashboard
+// porque se usa 2 veces por sesion: al empezar y al terminar
 export default function ConnectionSheet({ open, onClose, onRecovery }) {
   const { status, connected, jobActive, runAction, setBanner, refreshConfig } = useStatus()
   const [ports, setPorts] = useState([])
@@ -36,13 +36,13 @@ export default function ConnectionSheet({ open, onClose, onRecovery }) {
     try {
       const result = await runAction(() => api.connect(selectedPort, simulate))
       await refreshConfig()
-      // El aviso de firmware viene del propio /api/connect: si la config pide
-      // el eje Z invertido y el micro no sabe hacerlo, dibuja al aire.
+      // el aviso de firmware viene del propio /api/connect, si la config
+      // pide Z invertido y el micro no sabe hacerlo, dibuja al aire
       if (result?.warning) setBanner({ type: 'warn', text: result.warning })
       if (result?.recovery) onRecovery(result.recovery)
       onClose()
     } catch {
-      // runAction ya dejo el banner de error
+      // runAction ya dejo el banner de error ahi
     } finally {
       setBusy(false)
     }
@@ -62,9 +62,9 @@ export default function ConnectionSheet({ open, onClose, onRecovery }) {
 
   return (
     <Sheet open={open} onClose={onClose} title="Conexión">
-      {/* Conectarse cambia la hoja entera de un formulario a una confirmacion.
-          Es el unico momento en el que el usuario esta mirando fijo esta hoja,
-          asi que el cambio se ve en vez de suceder entre dos fotogramas. */}
+      {/* al conectar la hoja entera pasa de formulario a confirmacion. es
+          el unico momento en que el usuario esta mirando fijo esta hoja,
+          por eso el cambio se ve y no pasa entre dos frames sin mas */}
       <AnimatePresence mode="wait" initial={false}>
       {connected ? (
         <motion.div

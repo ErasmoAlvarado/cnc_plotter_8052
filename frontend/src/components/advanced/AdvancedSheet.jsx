@@ -15,9 +15,9 @@ const SECTIONS = [
   { value: 'tools', label: 'Diagnóstico', Component: UtilitiesSection },
 ]
 
-// Todo lo que un usuario nuevo no necesita tocar. Vive fuera de la pantalla
-// principal —a un clic, no a cinco— para que el dashboard pueda dedicarse a lo
-// que se usa todos los días.
+// todo lo que un usuario nuevo no necesita tocar. va fuera de la pantalla
+// principal (a un click, no a cinco) para que el dashboard se dedique a
+// lo que se usa todos los dias
 export default function AdvancedSheet({ open, onClose, initialSection = 'speed' }) {
   const [section, setSection] = useState(initialSection)
   const Current = SECTIONS.find((s) => s.value === section)?.Component ?? SpeedSection
@@ -31,9 +31,9 @@ export default function AdvancedSheet({ open, onClose, initialSection = 'speed' 
         value={section}
         onChange={setSection}
       />
-      {/* Cruce con `mode="wait"`: las cuatro secciones tienen alturas muy
-          distintas, y solapandolas la hoja daria un tiron mientras las dos
-          existen a la vez. Se desvanece una, entra la otra. */}
+      {/* cruce con mode="wait", las 4 secciones tienen alturas muy
+          distintas y solapadas la hoja pegaria un tiron mientras las 2
+          existen a la vez. se desvanece una, entra la otra */}
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={section}

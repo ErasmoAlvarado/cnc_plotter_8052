@@ -5,9 +5,9 @@ import SegmentedControl from '../ui/SegmentedControl.jsx'
 
 const PRESETS = [0.1, 1, 5, 10]
 
-// Chips de paso en vez de un campo numerico: el 95 % de las veces el usuario
-// quiere uno de cuatro valores, y escribirlos a mano es friccion pura. El campo
-// libre sigue existiendo para el caso raro, pero escondido tras "otro".
+// chips de paso en vez de un campo numerico, el 95% de las veces el
+// usuario quiere uno de estos 4 valores y escribirlos a mano es friccion
+// de mas. el campo libre sigue ahi para el caso raro, atras de "otro"
 export default function StepChips({ value, onChange }) {
   const [custom, setCustom] = useState(false)
   const { t } = useMotionPrefs()

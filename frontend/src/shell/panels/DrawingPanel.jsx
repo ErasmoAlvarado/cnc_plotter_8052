@@ -7,12 +7,11 @@ import Button from '../../components/ui/Button.jsx'
 import Banner from '../../components/ui/Banner.jsx'
 import Toggle from '../../components/ui/Toggle.jsx'
 
-// Mitad "rail" de la vista del dibujo: cargar el archivo y leer lo que trae.
-// La otra mitad —el lienzo y los botones de ejecucion— vive en el escenario,
-// porque es lo que se mira, no lo que se toca.
+// mitad "rail" de la vista del dibujo: cargar el archivo y mostrar lo que
+// trae. la otra mitad (canvas + botones de ejecucion) vive en el stage,
+// porque eso es lo que se mira y no lo que se toca.
 //
-// El estado lo pone useDrawing (shell/useDrawing.js), que es comun a las dos
-// mitades.
+// el estado lo pone useDrawing (shell/useDrawing.js), comun a las 2 mitades
 export default function DrawingPanel({ drawing }) {
   const { status, busy } = useStatus()
   const { gcode, upload, uploading, flipY, fitted, applyTransform } = drawing
@@ -36,9 +35,9 @@ export default function DrawingPanel({ drawing }) {
         onChange={(e) => upload(e.target.files?.[0])}
       />
 
-      {/* Cargar un archivo sustituye la zona de soltado por su ficha. Es el
-          cambio mas grande que hace el panel, y de golpe se lee como si algo se
-          hubiera roto y redibujado. */}
+      {/* al cargar un archivo la zona de soltado se cambia por la ficha,
+          es el cambio mas grande del panel y de golpe se lee como que algo
+          se rompio y redibujo */}
       <AnimatePresence mode="wait" initial={false}>
         {!gcode ? (
           <motion.div
@@ -55,9 +54,9 @@ export default function DrawingPanel({ drawing }) {
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
             {...fadeUp}
-            // Al arrastrar un archivo encima crece lo justo para acusar recibo.
-            // El borde ya cambia de color (shell.css); esto es para el rabillo
-            // del ojo, que es donde esta la atencion mientras se arrastra.
+            // al arrastrar un archivo encima crece un toque para avisar. el
+            // borde ya cambia de color en shell.css, esto es para el
+            // rabillo del ojo mientras arrastras
             animate={{ opacity: 1, y: 0, scale: over ? 1.015 : 1 }}
             transition={t(spring.smooth)}
           >
@@ -83,11 +82,11 @@ export default function DrawingPanel({ drawing }) {
               </span>
             </div>
 
-            {/* Voltear Y es por archivo y no un ajuste de la maquina: depende
-                de con que se exporto el G-code. El estandar asume Y hacia
-                arriba y esta maquina tiene el origen arriba, asi que un
-                fichero de CAM normal sale del reves. El lienzo repinta el
-                resultado en cuanto se marca, antes de dibujar nada. */}
+            {/* voltear Y es del archivo, no un ajuste de la maquina, depende
+                de con que se exporto el gcode. el estandar asume Y para
+                arriba y esta maquina tiene el origen arriba, entonces un
+                archivo de CAM normal sale al reves. el canvas repinta el
+                resultado apenas se marca, antes de dibujar nada */}
             <Toggle
               id="gcode-flip-y"
               checked={flipY}

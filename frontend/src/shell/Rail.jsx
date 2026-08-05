@@ -9,9 +9,9 @@ import PatternsPanel from './panels/PatternsPanel.jsx'
 import PenControl from '../components/dashboard/PenControl.jsx'
 import Button from '../components/ui/Button.jsx'
 
-// Columna de control. Ancho fijo, scroll propio, y el orden del trabajo real:
-// cargar el dibujo -> colocar la maquina -> ajustar la pluma -> (calibrar,
-// probar patrones, que son cosas de una vez cada tanto y van al final).
+// columna de control. ancho fijo, scroll propio, y el orden del trabajo
+// real: cargar el dibujo -> colocar la maquina -> ajustar la pluma ->
+// (calibrar, probar patrones, cosas de vez en cuando que van al final)
 export default function Rail({ drawing, onOpenConnection, onOpenCalibration, onOpenPenTuner }) {
   const { canOperate, config } = useStatus()
   const { gcode } = drawing
@@ -20,9 +20,9 @@ export default function Rail({ drawing, onOpenConnection, onOpenCalibration, onO
   const calibrated = !!config?.last_calibration_date
 
   return (
-    // El escalonado corre una sola vez, al montar. Colapsar un grupo no lo
-    // vuelve a disparar: RailGroup anima su propia altura y su AnimatePresence
-    // lleva initial={false} justo para eso.
+    // el stagger corre una sola vez al montar. colapsar un grupo no lo
+    // vuelve a disparar, RailGroup anima su propia altura y su
+    // AnimatePresence lleva initial={false} justo para eso
     <motion.nav
       className="rail"
       aria-label="Controles de la máquina"
@@ -40,9 +40,9 @@ export default function Rail({ drawing, onOpenConnection, onOpenCalibration, onO
 
       <RailGroup id="pen" title="Pluma">
         <PenControl disabled={!canOperate} />
-        {/* El ajuste fino abre su propia hoja en vez de vivir aqui dentro:
-            buscar la presion es un rato de prueba y error con el papel puesto,
-            no una accion del rail. */}
+        {/* el ajuste fino abre su propia hoja y no vive aca adentro, buscar
+            la presion es un rato de prueba y error con el papel puesto, no
+            una accion del rail */}
         <Button variant="ghost" size="sm" block icon="scope" onClick={onOpenPenTuner}>
           Ajuste fino de presión
         </Button>

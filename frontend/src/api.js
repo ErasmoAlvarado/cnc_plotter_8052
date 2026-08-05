@@ -1,5 +1,4 @@
-// Unico punto de contacto con el backend FastAPI (python/cnc_api.py).
-// Ningun componente debe llamar fetch()/WebSocket directamente: todo pasa por aca.
+// unico punto de contacto con el backend, nada de fetch suelto en componentes
 
 export const API_BASE = 'http://127.0.0.1:8000'
 export const WS_URL = 'ws://127.0.0.1:8000/ws'
@@ -17,14 +16,11 @@ async function apiFetch(path, options = {}) {
   try {
     data = await res.json()
   } catch {
-    // cuerpo vacio, ej. algunas respuestas 204
+    // algunas respuestas vienen sin body, 204
   }
 
   if (!res.ok) {
-    // Los errores de limites llegan como objeto y no como cadena, porque el
-    // frontend necesita los datos ademas del texto (cuantos mm quedan, si se
-    // puede ofrecer "Ajustar al area"). Aqui se separan: `message` para el
-    // banner, `detail` para quien sepa que hacer con el.
+    // errores de limites vienen como objeto, el front necesita los datos ademas del texto
     const detail = data?.detail ?? data?.message
     const message =
       typeof detail === 'string'
@@ -49,7 +45,6 @@ function post(path, body) {
 }
 
 export const api = {
-  // Conexion / estado
   connect: (port, simulate) => post('/api/connect', { port: port || null, simulate: !!simulate }),
   disconnect: () => post('/api/disconnect'),
   getStatus: () => apiFetch('/api/status'),
@@ -59,7 +54,6 @@ export const api = {
   getConfig: () => apiFetch('/api/config'),
   recoverPosition: (action) => post('/api/recover-position', { action }),
 
-  // G-code
   uploadGcode: (file) => {
     const fd = new FormData()
     fd.append('file', file)
@@ -67,21 +61,15 @@ export const api = {
   },
   run: () => post('/api/run'),
   stop: () => post('/api/stop'),
-  // Espejo en Y / ajuste al area sobre el G-code YA cargado. Devuelve el
-  // preview nuevo, asi que el lienzo muestra lo que se va a dibujar antes de
-  // confirmar. El fichero no se reescribe: quitar el espejo cuesta lo mismo
-  // que ponerlo.
+  // no reescribe el archivo, por eso sacar el espejo cuesta igual que ponerlo
   gcodeTransform: (flip_y, fit) => post('/api/gcode-transform', { flip_y, fit }),
 
-  // Posicion
   setOrigin: () => post('/api/set-origin'),
   home: () => post('/api/home'),
   motorsOff: () => post('/api/motors-off'),
 
-  // Jog
   jog: (axis, direction, distance_mm) => post('/api/jog', { axis, direction, distance_mm }),
 
-  // Pluma / eje Z
   pen: (action) => post('/api/pen', { action }),
   penJog: (steps) => post('/api/pen-jog', { steps }),
   penHolder: (invert) => post('/api/pen-holder', { invert }),
@@ -91,20 +79,14 @@ export const api = {
   penTestLine: (length_mm = 20) => post('/api/pen-test-line', { length_mm }),
   penConfig: (pen_steps) => post('/api/pen-config', { pen_steps }),
 
-  // Velocidad / ajustes
   settings: (payload) => post('/api/settings', payload),
   speed: (payload) => post('/api/speed', payload),
 
-  // Patrones de prueba
   testPattern: (pattern, size) => post('/api/test-pattern', { pattern, size }),
-  // Hasta que tamano cabe cada patron en el area actual. 'size' no significa
-  // lo mismo en todos (radio en el circulo, espaciado en la rejilla), asi que
-  // el maximo lo calcula el backend a partir de la misma tabla que valida.
+  // size significa algo distinto por patron, el maximo lo calcula el backend
   listPatterns: () => apiFetch('/api/patterns'),
 
-  // Calibracion. X e Y se miden y se aplican por SEPARADO: son dos ejes
-  // mecanicamente distintos y aplicar la medida de uno al otro dejaba siempre
-  // uno de los dos mal calibrado.
+  // X e Y son ejes distintos, aplicar la medida de uno al otro dejaba uno mal calibrado
   calibrateDrawLine: (axis = 'x') => post('/api/calibrate/steps/draw-line', { axis }),
   calibrateApplySteps: (measured_mm, axis = 'x') =>
     post('/api/calibrate/steps/apply', { axis, measured_mm }),
@@ -125,7 +107,7 @@ export function openStatusSocket({ onMessage, onOpen, onClose }) {
   }
   ws.onclose = onClose
   ws.onerror = () => {
-    // el evento close se dispara igual, no hace falta manejarlo aparte
+    // igual dispara el close despues, no hace falta hacer nada aca
   }
   return ws
 }

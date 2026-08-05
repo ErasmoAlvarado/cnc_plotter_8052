@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button.jsx'
 import DisabledHint from '../../components/ui/DisabledHint.jsx'
 import Stepper from '../../components/ui/Stepper.jsx'
 
-// Los cinco patrones que sabe dibujar el backend (PATTERNS en cnc_api.py).
+// los 5 patrones que sabe dibujar el backend (PATTERNS en cnc_api.py)
 const ETIQUETAS = {
   square: 'Cuadrado',
   triangle: 'Triángulo',
@@ -16,23 +16,21 @@ const ETIQUETAS = {
   grid: 'Rejilla',
 }
 
-// Atajo para comprobar la calibracion sin tener que buscar un G-code: un
-// cuadrado de 20 mm que se mide con una regla dice en diez segundos si los
-// pasos/mm estan bien.
+// atajo para chequear la calibracion sin buscar un gcode: un cuadrado de
+// 20mm medido con una regla dice en 10 segundos si los pasos/mm estan bien.
 //
-// El tamano maximo lo dice el backend y no se calcula aqui: 'size' no significa
-// lo mismo en todos los patrones —es el lado del cuadrado, pero el RADIO del
-// circulo y el ESPACIADO de cada celda de la rejilla— asi que un unico "cabe si
-// size <= area" era falso para tres de los cinco. Un circulo de 60 en una
-// maquina de 80 mm mide 121 mm de ancho, y hasta ahora se dibujaba contra el
-// tope.
+// el tamano maximo lo dice el backend, no se calcula aca -- 'size' no
+// significa lo mismo en todos los patrones (lado del cuadrado, pero RADIO
+// en el circulo y ESPACIADO de celda en la rejilla) asi que un "cabe si
+// size <= area" generico fallaba para 3 de los 5. un circulo de 60 en una
+// maquina de 80mm mide 121mm de ancho y antes se dibujaba igual, contra el tope
 export default function PatternsPanel() {
   const { startJob, reason, status, busy } = useStatus()
   const [size, setSize] = useState('20')
   const [limites, setLimites] = useState(null)
   const { t } = useMotionPrefs()
 
-  // Los maximos dependen del area, asi que se releen cuando esta cambia.
+  // los maximos dependen del area, se releen cuando esta cambia
   useEffect(() => {
     let vivo = true
     api

@@ -12,9 +12,7 @@ import StepBacklash from './StepBacklash.jsx'
 import StepPen from './StepPen.jsx'
 import QuickCalibration from './QuickCalibration.jsx'
 
-// Variantes dinamicas: reciben la direccion por `custom`. Tienen que ser
-// variantes con nombre — motion solo pasa `custom` a las funciones que encuentra
-// dentro de `variants`, no a un `initial`/`exit` que sea una funcion suelta.
+// motion solo pasa `custom` a funciones dentro de `variants`
 const SLIDE = {
   enter: (d) => ({ opacity: 0, x: 12 * d }),
   center: { opacity: 1, x: 0 },
@@ -32,12 +30,7 @@ const MODES = [
   { value: 'quick', label: 'Ajustes rápidos' },
 ]
 
-// Flujo guiado de calibracion.
-//
-// El orden importa y por eso "Siguiente" solo se habilita cuando el paso
-// anterior se completo: medir el juego con una escala mal calibrada da un
-// numero que no significa nada. Se puede volver atras libremente — lo que no se
-// puede es saltar hacia adelante.
+// el orden importa: medir el juego con la escala mal calibrada no sirve
 export default function CalibrationWizard({ open, onClose, initialStep = 0 }) {
   const { canOperate, connected } = useStatus()
   const [index, setIndex] = useState(initialStep)
@@ -45,9 +38,7 @@ export default function CalibrationWizard({ open, onClose, initialStep = 0 }) {
   const [mode, setMode] = useState('wizard')
   const { t } = useMotionPrefs()
 
-  // Hacia donde va el paso. Un asistente que siempre entra por el mismo lado no
-  // distingue avanzar de volver atras, y "Atras" es justo el boton que necesita
-  // decirle al usuario que esta deshaciendo. +1 adelante, -1 atras.
+  // hacia donde va el paso, adelante o atras
   const dir = useRef(1)
   const goTo = useCallback((next) => {
     setIndex((prev) => {
@@ -60,10 +51,9 @@ export default function CalibrationWizard({ open, onClose, initialStep = 0 }) {
     if (open) {
       dir.current = 1
       setIndex(initialStep)
-      // Tambien se reinicia lo completado. Sin esto, cerrar y volver a abrir
-      // mostraba los pasos en verde y dejaba saltar directo a "Terminar": el
-      // asistente afirmaba que la maquina estaba calibrada en esta visita
-      // cuando lo unico cierto es que se calibro en algun momento de la sesion.
+      // reinicia lo completado tambien, si no cerrar y abrir de nuevo
+      // mostraba todo en verde y dejaba saltar directo a Terminar como si
+      // ya estuviera calibrado en esta visita
       setCompleted({})
     }
   }, [open, initialStep])
@@ -72,11 +62,10 @@ export default function CalibrationWizard({ open, onClose, initialStep = 0 }) {
   const isLast = index === STEPS.length - 1
   const canAdvance = !!completed[STEPS[index].id]
 
-  // Se puede volver a cualquier paso anterior, y avanzar solo hasta el primero
-  // sin hacer. Antes se miraba unicamente el paso inmediatamente anterior, asi
-  // que con "Juego" hecho se podia saltar a "Pluma" sin haber pasado nunca por
-  // "Escala" — justo el orden que el asistente existe para imponer, porque
-  // medir el juego con una escala mal calibrada da un numero sin significado.
+  // se puede volver a cualquier paso anterior, avanzar solo hasta el
+  // primero sin hacer. antes miraba nomas el paso inmediato anterior y con
+  // "juego" hecho se podia saltar a "pluma" sin pasar por "escala", que es
+  // justo el orden que el wizard tiene que forzar
   const reachable = (i) =>
     i <= index || STEPS.slice(0, i).every((s) => completed[s.id])
 
@@ -122,10 +111,9 @@ export default function CalibrationWizard({ open, onClose, initialStep = 0 }) {
         )
       }
     >
-      {/* El asistente sirve para estrenar la maquina; los ajustes rapidos, para
-          el dia a dia. Obligar a recorrer los tres pasos —moviendo los ejes y
-          gastando papel— solo para subir dos pasos la pluma era la queja
-          principal de la calibracion. */}
+      {/* el wizard es para la primera vez, los ajustes rapidos para el dia
+          a dia. obligar a pasar los 3 pasos (moviendo ejes y gastando
+          papel) solo para subir 2 pasos la pluma era la queja mas comun */}
       <SegmentedControl
         label="Modo de calibración"
         options={MODES}

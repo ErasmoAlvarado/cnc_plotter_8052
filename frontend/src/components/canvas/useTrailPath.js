@@ -1,25 +1,13 @@
 import { useRef } from 'react'
 
-// La estela real convertida a UN solo atributo `d`.
+// convierte la estela a un solo atributo `d`, evita miles de nodos DOM y
+// evita rehacer toda la conversion 5 veces por segundo
 //
-// Dos problemas que resuelve, los dos medidos durante un trabajo real:
-//
-//   1. Un <polyline> por tramo con la pluma abajo llegaba a miles de nodos
-//      del DOM. Ahora es un unico <path> con varios subtrazados (M...L...M).
-//
-//   2. La conversion se rehacia ENTERA en cada mensaje del WebSocket (cinco
-//      por segundo), formateando otra vez los miles de puntos anteriores.
-//      Como StatusContext solo anade al final, aqui se guarda lo ya
-//      convertido y se concatena unicamente lo nuevo.
-//
-// Si el array encoge o se reinicia (trabajo nuevo, o el tope circular
-// descartando puntos viejos) se reconstruye entero, que es lo correcto y
-// ademas pasa muy de vez en cuando.
+// si el array se achica o se reinicia se reconstruye todo, pasa pocas veces
 export default function useTrailPath(trail, penSteps, project) {
   const cache = useRef({ d: '', count: 0, pluma: false, key: null })
 
-  // La proyeccion cambia si cambia el area o el sentido de los ejes: lo ya
-  // convertido deja de valer.
+  // si cambia el area o los ejes, lo ya convertido ya no sirve
   const key = `${project.key}|${penSteps}`
   const c = cache.current
 
@@ -34,13 +22,12 @@ export default function useTrailPath(trail, penSteps, project) {
 
     for (let i = estado.count; i < trail.length; i += 1) {
       const [x, y, z] = trail[i]
-      const abajo = z >= penSteps        // el mismo criterio que el firmware
+      const abajo = z >= penSteps        // mismo criterio que usa el firmware
       if (!abajo) {
         dibujando = false
         continue
       }
-      // Un salto con la pluma arriba corta el trazo: la estela es la prueba
-      // de por donde paso la maquina DIBUJANDO, no de por donde viajo.
+      // un salto con la pluma arriba corta el trazo
       d += `${dibujando ? 'L' : 'M'}${project.x(x).toFixed(3)},${project.y(y).toFixed(3)}`
       dibujando = true
     }

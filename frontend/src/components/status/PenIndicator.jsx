@@ -2,10 +2,10 @@ import { useStatus } from '../../StatusContext.jsx'
 import Icon from '../ui/Icon.jsx'
 import Tooltip from '../ui/Tooltip.jsx'
 
-// Estado de la pluma como icono, no como texto suelto. penDown viene derivado
-// de Z_POS en el contexto (z_steps >= pen_steps, el mismo criterio que usa el
-// firmware), asi que tambien es fiel mientras la maquina dibuja — el polling se
-// apaga durante un trabajo, pero el WebSocket sigue trayendo la Z.
+// estado de la pluma como icono, no texto suelto. penDown viene derivado
+// de Z_POS en el contexto (z_steps >= pen_steps, mismo criterio del
+// firmware), sigue siendo correcto mientras la maquina dibuja porque el
+// polling se apaga en un job pero el websocket sigue mandando la Z
 export default function PenIndicator() {
   const { penDown, status } = useStatus()
   const z = status?.position?.z_steps

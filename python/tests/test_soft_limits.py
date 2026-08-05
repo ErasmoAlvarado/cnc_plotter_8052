@@ -1,8 +1,5 @@
-"""Tests de los limites blandos.
-
-Sin finales de carrera, esto es lo unico que impide que el carro llegue al
-tope, pierda pasos y descalibre la maquina entera.
-"""
+"""tests de los limites blandos - sin finales de carrera esto es lo unico
+que evita que el carro llegue al tope y pierda pasos"""
 
 import pytest
 
@@ -13,7 +10,7 @@ from soft_limits import (TOLERANCE_MM, LimitExceeded, check_bounds,
                          check_point, fits, remaining_mm)
 
 
-# ─── comprobacion de punto ───────────────────────────────────────────
+# comprobacion de punto
 
 def test_dentro_del_area_no_es_violacion():
     assert check_point(40, 40, 80, 80) is None
@@ -28,8 +25,7 @@ def test_fuera_del_area_identifica_el_eje(x, y, eje):
 
 
 def test_la_tolerancia_deja_pasar_el_redondeo():
-    """El redondeo mm->pasos y el ultimo punto de un arco pueden dejar
-    decimas por fuera sin que eso signifique nada mecanicamente."""
+    """el redondeo mm->pasos puede dejar decimas de mas sin que importe"""
     assert check_point(80 + TOLERANCE_MM / 2, 0, 80, 80) is None
     assert check_point(80 + TOLERANCE_MM * 2, 0, 80, 80) is not None
 
@@ -40,7 +36,7 @@ def test_el_mensaje_dice_cuanto_se_pasa():
     assert v.as_dict()["excess_mm"] == 15.0
 
 
-# ─── comprobacion de caja ────────────────────────────────────────────
+# comprobacion de caja
 
 def test_caja_dentro_del_area():
     assert fits(Bounds(0, 80, 0, 80), 80, 80)
@@ -56,7 +52,7 @@ def test_caja_con_coordenadas_negativas():
     assert v is not None and v.axis == 'x' and v.limit == 0.0
 
 
-# ─── cuanto queda hasta el tope ──────────────────────────────────────
+# cuanto queda hasta el tope
 
 def test_lo_que_queda_hacia_delante_y_hacia_atras():
     assert remaining_mm(30, +1, 80) == pytest.approx(50 + TOLERANCE_MM)
@@ -67,7 +63,7 @@ def test_lo_que_queda_nunca_es_negativo():
     assert remaining_mm(200, +1, 80) == 0.0
 
 
-# ─── integracion con el plotter ──────────────────────────────────────
+# integracion con el plotter
 
 def _plotter(**kwargs):
     proto = CNCProtocol(simulate=True)
@@ -79,15 +75,14 @@ def _plotter(**kwargs):
 
 
 def test_un_movimiento_fuera_de_area_se_detiene():
-    """Antes esto solo dejaba un aviso de texto y movia igual."""
     pl = _plotter()
     with pytest.raises(LimitExceeded):
         pl.line_to(200, 0)
 
 
 def test_el_movimiento_bloqueado_no_movio_nada():
-    """La comprobacion va ANTES de mandar pasos: si salta, el carro sigue
-    donde estaba y la posicion cacheada sigue siendo cierta."""
+    """la comprobacion va antes de mandar pasos, si salta el carro no
+    se movio y la posicion cacheada sigue siendo cierta"""
     pl = _plotter()
     antes = pl.proto.pos_x
     with pytest.raises(LimitExceeded):
@@ -96,7 +91,6 @@ def test_el_movimiento_bloqueado_no_movio_nada():
 
 
 def test_desactivar_los_limites_los_desactiva_de_verdad():
-    """Quien sabe lo que hace tiene que poder saltarselos."""
     pl = _plotter(enforce_soft_limits=False)
     pl.line_to(200, 0)
     assert pl.gc_x == 200

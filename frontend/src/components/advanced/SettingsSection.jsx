@@ -22,17 +22,16 @@ function NumberInput({ id, value, onChange, ...rest }) {
   )
 }
 
-// Ajustes tecnicos. Casi nadie los toca a mano — la calibracion guiada escribe
-// los mismos valores — pero tienen que ser accesibles y editables para quien
-// sabe lo que hace o quiere copiar la configuracion de otra maquina.
+// ajustes tecnicos. casi nadie los toca a mano (la calibracion guiada
+// escribe los mismos valores) pero tienen que estar accesibles para el que
+// sabe lo que hace o quiere copiar la config de otra maquina
 export default function SettingsSection() {
   const { status, config, busy, runAction, refreshConfig, reason } = useStatus()
 
-  // El formulario se siembra desde la maquina una sola vez y a partir de ahi
-  // manda el usuario; el sondeo de 1,5 s no puede pisar lo que se esta
-  // escribiendo. "Recargar valores" vuelve a leer de la maquina — que es lo que
-  // hace falta despues de calibrar, porque si no la seccion sigue mostrando los
-  // pasos/mm viejos.
+  // se siembra desde la maquina una sola vez y de ahi en mas manda el
+  // usuario, el polling de 1.5s no puede pisar lo que se esta escribiendo.
+  // "recargar valores" vuelve a leer de la maquina, hace falta despues de
+  // calibrar o la seccion se queda mostrando los pasos/mm viejos
   const { form, set, reload } = useSyncedForm(status, (st) => ({
     steps_per_mm_x: String(st.steps_per_mm?.x ?? 170.67),
     steps_per_mm_y: String(st.steps_per_mm?.y ?? 170.67),
@@ -125,9 +124,9 @@ export default function SettingsSection() {
 
       <hr className="divider" />
 
-      {/* Perspectiva. No toca la cinemática: los milímetros siguen viviendo en
-          [0, max] y los pasos siguen siendo positivos. Lo único que cambia es
-          en qué esquina se pinta el (0,0) y hacia dónde mueve cada flecha. */}
+      {/* esto no toca la cinematica, los mm siguen en [0, max] y los pasos
+          siguen positivos. lo unico que cambia es en que esquina se pinta
+          el (0,0) y hacia donde apunta cada flecha */}
       <h3 className="section-title">Perspectiva de la máquina</h3>
       <Toggle
         id="invert-y"

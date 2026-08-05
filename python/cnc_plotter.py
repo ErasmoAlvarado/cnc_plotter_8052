@@ -1,57 +1,7 @@
 """
-cnc_plotter.py — Cerebro del Mini CNC Plotter — v2 FINAL
-G-code -> Bresenham -> Protocolo -> AT89S52 -> Motores
 
-Cristal: 11.0592 MHz — Baud: 9600
 
-PRECISION (sin cambios respecto a la v1, ya estaba bien):
-  1. Bresenham entero puro, cero error de acumulacion float
-  2. Conversion mm->pasos SIEMPRE desde la coordenada absoluta
-  3. Compensacion de backlash por eje al invertir direccion
-  4. Segmentacion adaptativa de arcos por tolerancia de cuerda
-  5. Batching: CMD_LINE ejecuta el Bresenham dentro del firmware
-  6. Posicion rastreada en enteros, nunca en float
-
-CAMBIOS DE LA v2 (ver DIAGNOSTICO.md):
-  [SW-11] z_pen_down_threshold configurable. Antes 'z < 0' obligaba a que
-          el G-code usara Z negativos; con Z0/Z5 el dibujo salia en blanco.
-  [SW-19] set_speed() sale del bucle de segmentos. Un circulo mandaba
-          cientos de tramas SET_SPEED identicas.
-  [SW-20] Los arcos ya no reenvian pen_down por segmento.
-  [SW-12] Limites coherentes: se leen de la config y se VALIDAN ANTES de
-          lanzar el trabajo (avisando), no a mitad de dibujo con una
-          excepcion que deja la maquina tirada.
-  [SW-1]  pen_down_flag es ahora una propiedad derivada de pos_z. Ya no
-          existe la doble maquina de estados que hacia que la pluma
-          "a veces si y a veces no".
-  NUEVO   abort_check: permite cancelar entre segmentos, no solo entre
-          lineas de G-code.
-  NUEVO   from_config() y set_pen_steps(): la config llega de verdad al
-          firmware en vez de quedarse en el JSON.
-
-CAMBIOS DE ESTA REVISION:
-  [SW-30] pen_invert llega al firmware desde from_config().
-  [SW-40] G0 con Z en la misma linea: antes bajaba la pluma (_apply_z) y
-          rapid_to la volvia a subir acto seguido. La pluma daba un
-          golpe contra el papel en cada rapido de ese estilo.
-  [SW-41] G2/G3 ya no fuerzan pen_down. Antes cualquier arco dibujaba
-          aunque el fichero lo hubiera pedido con la pluma arriba, y la
-          Z de esa misma linea se ignoraba.
-  [SW-42] M3/M4/M5 se aplican ANTES del movimiento de la misma linea
-          (el estado de pluma manda sobre el trazo que lo acompaña) y
-          M2/M30 despues (son fin de programa).
-  [SW-43] plot_gcode_lines() reinicia abs_mode y feedrate. Al lanzar un
-          segundo trabajo se heredaba el G91 del anterior y todo salia
-          en relativo.
-  [SW-44] gc_x/gc_y se re-derivan de los pasos reales al empezar. Si no,
-          el primer arco del trabajo se trazaba desde una posicion
-          imaginaria.
-  [SW-46] _apply_z() no reenvia pluma arriba/abajo si ya esta en ese
-          estado. Un post-procesador que repite Z en cada linea gastaba
-          un viaje completo de UART por segmento.
-  [SW-47] arc_to_segments() detecta arcos con radios incoherentes
-          (I/J que no cuadran con el destino) y cae a linea recta en vez
-          de dibujar una espiral silenciosa.
+la conversion mm a pasos , cerebro del plotter
 """
 
 import math
@@ -59,21 +9,17 @@ import sys
 import time
 
 from cnc_protocol import CNCProtocol
-# parse_gcode_line y arc_to_segments vivian aqui; se movieron a gcode_parse
-# para que gcode_walk pueda usarlos sin import circular. Se re-exportan porque
-# cnc_api.py y los tests los importan desde este modulo desde siempre.
 from gcode_parse import arc_to_segments, parse_gcode_line   # noqa: F401
 from gcode_transform import IDENTITY, GcodeTransform
 from gcode_walk import ArcEvent, DwellEvent, MoveEvent, PenEvent, bounds_of, walk
 from soft_limits import LimitExceeded, check_bounds, check_point
 
 
-# ─── BRESENHAM (entero puro, sin float) ──────────────────────────────
 
 def bresenham_steps(x0, y0, x1, y1):
-    """Lista de (dx, dy) con valores -1/0/+1 para una recta en pasos.
-    Se conserva para el modo interactivo y para tests; el camino normal
-    de dibujo usa CMD_LINE, que hace el Bresenham dentro del firmware."""
+    """lista de pasos dx dy por eje para una recta.
+    se usa en modo interactivo y en tests, el dibujo normal usa CMD_LINE
+    que hace bresenham dentro del firmware"""
     dx = abs(x1 - x0)
     dy = -abs(y1 - y0)
     sx = 1 if x0 < x1 else -1
@@ -97,34 +43,22 @@ def bresenham_steps(x0, y0, x1, y1):
 
 
 def gcode_bounds(lines):
-    """Compatibilidad: la tupla que esperaba el codigo anterior.
-
-    La caja la calcula ahora gcode_walk.bounds_of(), que recorre el fichero
-    con el MISMO interprete que lo dibuja. Antes esta funcion era un tercer
-    interprete propio que, entre otras cosas, se saltaba el viaje al origen
-    de G28 y de M2/M30."""
+    """compat con la tupla que esperaba el codigo viejo.
+    la caja la calcula gcode_walk.bounds_of con el mismo interprete que dibuja.
+    esto no es un interprete aparte"""
     from gcode_walk import command_line_count
     b = bounds_of(lines)
     return b.min_x, b.max_x, b.min_y, b.max_y, command_line_count(lines)
 
-
-# ─── PLOTTER ─────────────────────────────────────────────────────────
 
 class CNCPlotter:
 
     def __init__(self, proto, steps_per_mm_x=170.67, steps_per_mm_y=170.67,
                  max_x_mm=40.0, max_y_mm=40.0, speed_draw=5, speed_rapid=6,
                  z_pen_down_threshold=0.0, enforce_soft_limits=True):
-        """
-        proto: instancia de CNCProtocol ya conectada.
-        steps_per_mm: 4096 pasos/rev / 24 mm de circunferencia = 170.67
-                      -> 0.00586 mm/paso = 5.86 micras de resolucion.
-        speed_draw / speed_rapid: ms entre pasos de X e Y.
-           OJO: la velocidad del eje Z NO se controla aqui. Vive en el
-           firmware (VEL_Z) para que Z nunca herede la velocidad rapida
-           de X/Y — ese era el bug SW-2.
-        z_pen_down_threshold: en G-code, Z <= umbral significa pluma abajo.
-        """
+        """proto ya debe estar conectado. steps_per_mm default sale de
+        4096 pasos por revolucion sobre 24mm de circunferencia, unos 170.67.
+        speed_z no esta aca, vive en el firmware aparte"""
         self.proto = proto
         self.spm_x = steps_per_mm_x
         self.spm_y = steps_per_mm_y
@@ -135,39 +69,26 @@ class CNCPlotter:
         self.z_pen_down_threshold = z_pen_down_threshold
         self.enforce_soft_limits = enforce_soft_limits
 
-        # estado G-code
-        self.abs_mode = True        # G90 = True, G91 = False
+        self.abs_mode = True        
         self.gc_x = 0.0
         self.gc_y = 0.0
         self.feedrate = 100.0
 
-        # contadores
         self.lines_processed = 0
         self.total_steps = 0
         self.t_start = 0
 
-        # avisos acumulados durante un trabajo (fuera de area, etc.)
         self.warnings = []
 
-        # callable opcional que devuelve True si hay que abortar.
-        # Permite cancelar ENTRE SEGMENTOS, no solo entre lineas.
         self.abort_check = None
 
-        # [SW-46] Ultimo comando de pluma REALMENTE enviado en este
-        # trabajo (True=abajo, False=arriba, None=aun ninguno). Sirve
-        # para no repetir la trama cuando el G-code trae la misma Z en
-        # cada linea. Se pone a None al empezar cada trabajo, asi que
-        # la primera pluma del trabajo siempre se envia de verdad y el
-        # estado del micro queda reafirmado.
-        self._pen_cmd_sent = None
 
-    # ─── CONSTRUCCION DESDE CONFIG ───────────────────────────────
+        self._pen_cmd_sent = None
 
     @classmethod
     def from_config(cls, proto, cfg):
-        """Crea el plotter desde la config Y empuja al firmware lo que
-        le corresponde al firmware (profundidad y velocidad de pluma).
-        [SW-5] antes pen_steps se guardaba en el JSON y no llegaba nunca."""
+        """arma el plotter desde la config y empuja al firmware
+        la profundidad y velocidad de pluma"""
         plotter = cls(
             proto,
             steps_per_mm_x=cfg.get("steps_per_mm_x", 170.67),
@@ -183,8 +104,6 @@ class CNCPlotter:
         proto.backlash_y = cfg.get("backlash_y", 0)
         proto.pen_steps = cfg.get("pen_steps", 100)
         proto.z_speed = cfg.get("speed_z", 8)
-        # [SW-30] el sentido del eje Z tambien es config: hay que
-        # empujarlo ANTES del sync, que es quien lo manda al micro.
         proto.z_invert = bool(cfg.get("pen_invert", False))
         proto.sync_firmware()      # manda VEL_Z + PEN_N + Z_DIR y relee
         return plotter
@@ -192,22 +111,12 @@ class CNCPlotter:
     def _aborted(self):
         return bool(self.abort_check and self.abort_check())
 
-    # ─── CONVERSION mm -> pasos ──────────────────────────────────
-    # CLAVE DE PRECISION: convertir siempre la coordenada ABSOLUTA del
-    # destino, nunca el delta, para no acumular error de redondeo.
-    #   G1 X0.3 -> round(0.3*170.67) = 51
-    #   G1 X0.6 -> round(0.6*170.67) = 102  (delta 51)
-    #   G1 X0.9 -> round(0.9*170.67) = 154  (delta 52)  <- necesario
-    #   G1 X1.2 -> round(1.2*170.67) = 205  (delta 51)
-    # Convirtiendo el delta 0.3 mm cuatro veces darian 204: falta un paso.
 
     def mm_to_steps_x(self, mm):
         return round(mm * self.spm_x)
 
     def mm_to_steps_y(self, mm):
         return round(mm * self.spm_y)
-
-    # ─── MOVIMIENTO CORE (en pasos) ──────────────────────────────
 
     def move_to_steps(self, target_x, target_y, draw=False):
         dx = target_x - self.proto.pos_x
@@ -220,7 +129,7 @@ class CNCPlotter:
             self._rapid_move(dx, dy)
 
     def _rapid_move(self, dx, dy):
-        """Movimiento rapido: batch por eje. X e Y secuenciales."""
+        """rapido, batch por eje, x e y van secuenciales"""
         self.proto.set_speed(self.speed_rapid)
         if dx != 0:
             self.proto.step_x(1 if dx > 0 else -1, abs(dx))
@@ -229,16 +138,15 @@ class CNCPlotter:
         self.total_steps += abs(dx) + abs(dy)
 
     def _draw_line(self, tx, ty, dx, dy):
-        """Linea dibujada. Las diagonales van con CMD_LINE: el firmware
-        ejecuta Bresenham con Timer0, sin el jitter de 5-15 ms por paso
-        que metia el USB y que ponia a los motores en resonancia."""
+        """linea dibujada, las diagonales van por CMD_LINE con bresenham en el firmware usando Timer0
+        para evitar el jitter de USB que hacia resonar los motores"""
         self.proto.set_speed(self.speed_draw)
 
-        if dy == 0:                       # horizontal pura
+        if dy == 0:                       # horizontal 
             self.proto.step_x(1 if dx > 0 else -1, abs(dx))
             self.total_steps += abs(dx)
             return
-        if dx == 0:                       # vertical pura
+        if dx == 0:                       # vertical
             self.proto.step_y(1 if dy > 0 else -1, abs(dy))
             self.total_steps += abs(dy)
             return
@@ -251,8 +159,7 @@ class CNCPlotter:
         max_steps = max(abs_dx, abs_dy)
 
         if max_steps <= 255:
-            # los pasos solo se contabilizan si el micro los confirmo;
-            # si no, ni pos_* ni total_steps deben avanzar
+
             if self.proto.send_line_segment(abs_dx, abs_dy, dir_x, dir_y):
                 self.proto.pos_x = tx
                 self.proto.pos_y = ty
@@ -262,14 +169,10 @@ class CNCPlotter:
             self._draw_line_chunked(abs_dx, abs_dy, dir_x, dir_y)
 
     def _draw_line_chunked(self, abs_dx, abs_dy, dir_x, dir_y):
-        """Divide una linea larga en segmentos de 255 pasos como maximo.
-        El acumulador entero garantiza que la suma de los segmentos da
-        exactamente abs_dx pasos en X y abs_dy en Y, sin drift.
-
-        No recibe el destino a proposito: pos_x/pos_y se acumulan segmento
-        a segmento SOLO con lo que el micro confirmo. Si se cortase a
-        mitad (abort o fallo de comunicacion), forzar la posicion final
-        haria creer que el carro llego donde no llego."""
+        """corta una linea larga en trozos de max 255 pasos.
+        el acumulador entero suma los trozos exacto, abs_dx y abs_dy sin drift.
+        no recibe el destino, pos_x y pos_y solo suman lo que el micro confirmo.
+        asi si se corta a mitad no queda una posicion mentirosa"""
         major = max(abs_dx, abs_dy)
         x_is_major = abs_dx >= abs_dy
         minor_total = min(abs_dx, abs_dy)
@@ -278,7 +181,7 @@ class CNCPlotter:
         prev_minor_acc = 0
 
         for seg in range(n_segs):
-            if self._aborted():           # cancelar entre segmentos
+            if self._aborted():          
                 return
             seg_start = seg * 255
             seg_end = min(seg_start + 255, major)
@@ -294,28 +197,16 @@ class CNCPlotter:
                 seg_dx, seg_dy = seg_minor, seg_major
 
             if not self.proto.send_line_segment(seg_dx, seg_dy, dir_x, dir_y):
-                break                     # fallo de comunicacion: parar
+                break                    
             self.proto.pos_x += dir_x * seg_dx
             self.proto.pos_y += dir_y * seg_dy
             self.proto._maybe_save_position()
             self.total_steps += max(seg_dx, seg_dy)
 
-    # ─── API DE ALTO NIVEL (en mm) ───────────────────────────────
-
     def _check_area(self, x_mm, y_mm):
-        """Ultima red antes de mover. Lanza LimitExceeded.
-
-        Antes solo acumulaba un aviso de texto y dejaba pasar el movimiento
-        [SW-12]. La razon era buena — reventar a mitad de un dibujo deja la
-        maquina a medias — pero la consecuencia era peor: sin finales de
-        carrera, seguir moviendo contra el tope pierde pasos y descalibra la
-        maquina entera. Un trabajo cortado se rehace; una calibracion perdida
-        hay que medirla otra vez con regla.
-
-        Lo que hace que esto no corte trabajos legitimos es que el pre-vuelo
-        (soft_limits.check_bounds sobre la caja completa, antes de empezar)
-        ya rechazo todo lo que no cabe. Si se llega aqui es porque el origen
-        se movio a mano despues del pre-vuelo, y ahi parar es lo correcto."""
+        """ultima red antes de mover, tira LimitExceeded.
+        si llega aca es porque el origen se movio a mano despues del prevuelo.
+        sin finales de carrera, seguir empujando contra el tope pierde pasos"""
         if not self.enforce_soft_limits:
             return
         violation = check_point(x_mm, y_mm, self.max_x, self.max_y)
@@ -326,14 +217,14 @@ class CNCPlotter:
         raise LimitExceeded(violation)
 
     def line_to(self, x_mm, y_mm):
-        """Dibujar una linea hasta la posicion absoluta (mm)."""
+        """dibuja hasta la posicion absoluta en mm"""
         self._check_area(x_mm, y_mm)
         self.move_to_steps(self.mm_to_steps_x(x_mm),
                            self.mm_to_steps_y(y_mm), draw=True)
         self.gc_x, self.gc_y = x_mm, y_mm
 
     def rapid_to(self, x_mm, y_mm):
-        """Movimiento rapido hasta (mm), con la pluma arriba."""
+        """rapido hasta la posicion en mm con la pluma arriba"""
         self._check_area(x_mm, y_mm)
         self._set_pen(False)
         self.move_to_steps(self.mm_to_steps_x(x_mm),
@@ -342,24 +233,22 @@ class CNCPlotter:
 
     @property
     def chord_tol(self):
-        """Error de cuerda maximo al descomponer arcos: un paso de motor.
-        Afinar mas no se puede imprimir, y multiplica los segmentos."""
+        """error de cuerda max al partir arcos: un paso de motor, mas fino
+        que eso no se nota y solo multiplica segmentos de mas"""
         return min(1.0 / self.spm_x, 1.0 / self.spm_y)
 
     def arc_to(self, x_mm, y_mm, i_mm, j_mm, clockwise=True, draw=True):
-        """Arco G2/G3 desde la posicion actual, descomponiendolo aqui mismo.
-        Lo usan los patrones de prueba (draw_circle), que piden arcos
-        directamente sin pasar por un fichero de G-code."""
+        """arco G2 o G3 desde la posicion actual, lo usan los patrones de
+        prueba como draw_circle que piden arcos sin pasar por un archivo"""
         segments = arc_to_segments(self.gc_x, self.gc_y, x_mm, y_mm,
                                    i_mm, j_mm, clockwise, self.chord_tol)
         self.trace_points(segments, draw)
 
     def trace_points(self, points, draw=True):
-        """Recorre una polilinea ya calculada.
-        [SW-19] La velocidad se fija UNA vez, no por segmento — un circulo
-        mandaba cientos de tramas SET_SPEED identicas.
-        [SW-41] draw=False la recorre con la pluma arriba, para respetar los
-        ficheros que posicionan siguiendo una curva."""
+        """recorre una polilinea ya calculada.
+        la velocidad se fija una sola vez antes del loop, no por segmento.
+        un circulo mandaria cientos de tramas SET_SPEED iguales si no.
+        con draw=False recorre con la pluma arriba, para posicionar por una curva"""
         self.proto.set_speed(self.speed_draw if draw else self.speed_rapid)
         for sx, sy in points:
             if self._aborted():
@@ -376,37 +265,32 @@ class CNCPlotter:
         return self._set_pen(True)
 
     def invalidate_pen_cache(self):
-        """Olvida el estado de pluma cacheado. Hay que llamarlo si algo
-        externo mueve el eje Z por su cuenta (jog manual, resync,
-        z_set_zero), para que el proximo pen_up/pen_down se envie de
-        verdad en vez de darse por hecho."""
+        """olvida el estado de pluma cacheado.
+        llamar si algo externo mueve Z por su cuenta, jog manual, resync o z_set_zero.
+        asi el proximo pen_up o pen_down se manda de verdad y no se asume"""
         self._pen_cmd_sent = None
 
     def set_pen_steps(self, steps):
-        """Profundidad de pluma. Va de verdad al firmware (CMD_SET_PEN_N)."""
+        """profundidad de pluma, va al firmware de verdad, CMD_SET_PEN_N"""
         ok = self.proto.set_pen_steps(steps)
-        # Cambiar PEN_N mueve el destino de "pluma abajo": lo cacheado
-        # deja de valer aunque el flag siga diciendo lo mismo.
         self.invalidate_pen_cache()
         return ok
 
     def z_set_zero(self):
-        """Define la altura actual de la pluma como el cero de 'arriba'."""
+        """fija la altura actual como el cero de 'arriba'"""
         ok = self.proto.z_set_zero()
         self.invalidate_pen_cache()
         return ok
 
     def set_pen_invert(self, invert):
-        """[SW-30] Sentido fisico del eje Z (porta-pluma montado al reves).
-        Ver CNCProtocol.set_z_invert: la inversion la hace el firmware."""
+        """sentido fisico de Z, si el portapluma quedo al reves.
+        la inversion la hace el firmware, ver CNCProtocol.set_z_invert"""
         ok = self.proto.set_z_invert(invert)
         self.invalidate_pen_cache()
         return ok
 
     def go_home(self):
         self.rapid_to(0, 0)
-
-    # ─── EJECUCION G-CODE ────────────────────────────────────────
 
     def plot_gcode_file(self, filename):
         try:
@@ -419,28 +303,19 @@ class CNCPlotter:
         return self.plot_gcode_lines(lines)
 
     def begin_job(self):
-        """Deja el interprete de G-code en un estado limpio y coherente
-        con la maquina. Lo llaman plot_gcode_lines() y el hilo de job de
-        la API: sin esto, el segundo trabajo de una sesion arrastra el
-        estado del primero."""
+        """deja el interprete en estado limpio, lo llaman plot_gcode_lines()
+        y el hilo de job de la api - sin esto el segundo trabajo de la
+        sesion arrastra el estado del primero"""
         self.t_start = time.perf_counter()
         self.lines_processed = 0
         self.total_steps = 0
         self.warnings = []
 
-        # [SW-43] Estado modal del interprete. Si el trabajo anterior
-        # acabo en G91, el siguiente empezaba en relativo y se dibujaba
-        # completamente descolocado.
         self.abs_mode = True
         self.feedrate = 100.0
 
-        # [SW-46] La primera pluma del trabajo se envia siempre.
         self.invalidate_pen_cache()
 
-        # [SW-44] gc_x/gc_y son la posicion en mm segun el interprete;
-        # proto.pos_x/y es donde esta la maquina de verdad. Si vienen de
-        # un jog manual no coinciden, y arc_to() usa gc_* como centro de
-        # referencia: el primer arco saldria desplazado.
         self._sync_gc_from_steps()
 
     def _sync_gc_from_steps(self):
@@ -448,11 +323,9 @@ class CNCPlotter:
         self.gc_y = self.proto.pos_y / self.spm_y if self.spm_y else 0.0
 
     def events(self, lines, transform: GcodeTransform = IDENTITY):
-        """El recorrido de gcode_walk con los parametros de ESTA maquina.
-
-        Un solo sitio donde se decide el umbral de pluma, la tolerancia de
-        cuerda y el estado inicial de la pluma, para que el preview y el
-        pre-vuelo puedan pedir exactamente el mismo recorrido."""
+        """gcode_walk con los parametros de esta maquina puesta, un solo
+        lugar donde se decide umbral de pluma / tolerancia de cuerda /
+        estado inicial, asi preview y pre-vuelo piden el mismo recorrido"""
         return walk(lines,
                     z_pen_down_threshold=self.z_pen_down_threshold,
                     chord_tol=self.chord_tol,
@@ -460,13 +333,11 @@ class CNCPlotter:
                     initial_pen_down=self.proto.pen_down_flag)
 
     def plot_gcode_lines(self, lines, transform: GcodeTransform = IDENTITY):
-        """Ejecuta una lista de lineas de G-code."""
+        """ejecuta una lista de lineas de g-code"""
         total = len(lines)
         self.begin_job()
 
-        # Validar el area ANTES de mover nada. Ahora es un bloqueo, no un
-        # aviso: sin finales de carrera, dejar que el carro llegue al tope
-        # pierde pasos y descalibra la maquina.
+
         if self.enforce_soft_limits:
             b = bounds_of(lines, self.z_pen_down_threshold,
                           self.chord_tol, transform)
@@ -511,12 +382,8 @@ class CNCPlotter:
         return True
 
     def exec_event(self, ev):
-        """Traduce UN evento de gcode_walk a movimiento real.
-
-        Toda la interpretacion del G-code (modales, orden de pluma, arcos,
-        relativos) ya la hizo el walker; aqui solo queda mover. Esa es la
-        razon de ser del walker: que el preview y el pre-vuelo consuman esta
-        misma lista de eventos y no puedan ver otra geometria."""
+        """traduce un evento de gcode_walk a movimiento real - toda la
+        interpretacion del g-code ya la hizo el walker, aca solo se mueve"""
         if isinstance(ev, MoveEvent):
             if ev.draw:
                 self.proto.set_speed(self.speed_draw)
@@ -531,31 +398,23 @@ class CNCPlotter:
             time.sleep(ev.seconds)
 
     def _set_pen(self, down):
-        """Punto unico por el que pasan TODOS los cambios de pluma.
-
-        [SW-46] Evita reenviar la trama si la pluma ya esta donde se
-        pide. pen_up/pen_down son idempotentes en el firmware, asi que
-        repetirlos no rompe nada — pero cuesta un viaje completo de UART
-        (~5 ms mas el movimiento de Z), y hay post-procesadores que
-        ponen la misma Z en cada una de las miles de lineas del fichero.
-
-        _pen_cmd_sent vale None al empezar cada trabajo, de modo que la
-        primera pluma del trabajo SIEMPRE se envia y reafirma el estado
-        real del micro; a partir de ahi pos_z solo cambia con ACK, asi
-        que el cache no puede quedarse mintiendo sin que se entere
-        comm_lost."""
+        """unico punto por donde pasan todos los cambios de pluma. no
+        reenvia si ya esta en el estado pedido - pen_up/down son
+        idempotentes en el firmware asi que repetir no rompe nada, pero
+        cuesta un viaje de UART entero y hay post-procesadores que ponen
+        la misma Z en cada linea del archivo. _pen_cmd_sent arranca en
+        None en cada trabajo asi la primera pluma siempre se manda de
+        verdad"""
         if self._pen_cmd_sent is down:
             return True
         ok = self.proto.pen_down() if down else self.proto.pen_up()
-        # Solo se cachea lo que el micro confirmo. Si fallo, se deja en
-        # None para que el proximo intento vuelva a mandarlo.
+
         self._pen_cmd_sent = down if ok else None
         return ok
 
-    # _apply_z() y _resolve_xy() vivian aqui. Ahora los hace gcode_walk, que
-    # es quien interpreta el fichero; el plotter solo mueve.
 
-    # ─── PATRONES DE PRUEBA ──────────────────────────────────────
+
+    # patrones 
 
     def draw_square(self, size_mm=10):
         print(f"  Dibujando cuadrado {size_mm}x{size_mm}mm...")
@@ -625,7 +484,7 @@ class CNCPlotter:
         self.rapid_to(0, 0)
         print(f"  OK. Cada celda debe medir {spacing_mm}mm exactos.")
 
-    # ─── CALIBRACION (CLI) ───────────────────────────────────────
+    # calibracion 
 
     def calibrate_steps(self):
         print("\n  ═══ CALIBRACION DE PRECISION ═══")
@@ -681,13 +540,9 @@ class CNCPlotter:
         self.gc_x = self.gc_y = 0.0
 
     def calibrate_pen(self):
-        """Calibracion de pluma con el nuevo Z absoluto.
-        Es el flujo que arregla el problema del eje Z: se fija un cero
-        fisico y a partir de ahi pen_up/pen_down son ABSOLUTOS.
-
-        [SW-30] Si el porta-pluma quedo montado al reves (subir baja y
-        bajar sube), lo PRIMERO es la opcion V. Todo lo demas depende de
-        que el sentido sea el correcto."""
+        """calibracion de pluma con Z absoluto: fija un cero fisico y desde
+        ahi pen_up/pen_down son absolutos. si el porta-pluma quedo al
+        reves lo primero es la opcion V, todo lo demas depende de eso"""
         print("\n  ═══ CALIBRACION DE PLUMA (eje Z) ═══")
         print("  Orden recomendado:  V → U/J hasta la altura segura → Z → N → T\n")
         print("  V = invertir sentido del eje Z (porta-pluma al reves)")
@@ -730,7 +585,7 @@ class CNCPlotter:
                 print("    Opcion no reconocida.")
 
     def _toggle_pen_invert(self):
-        """Cambia el sentido del eje Z y lo deja guardado en la config."""
+        """cambia el sentido de Z y lo guarda en la config"""
         from cnc_config import save_config
 
         nuevo = not self.proto.z_invert
@@ -753,7 +608,7 @@ class CNCPlotter:
         print("    Si el cero quedo mal, ajusta con U/J y pulsa Z.")
 
 
-# ─── CLI ─────────────────────────────────────────────────────────────
+# no se usa
 
 def main():
     from cnc_config import load_config, save_config
@@ -791,7 +646,7 @@ def main():
                 print("         hasta reprogramar el micro con 8052_v2.asm.")
 
     def pedir_float(prompt, defecto):
-        """input() + float() sin que un dedazo tire toda la sesion."""
+        """input + float sin que un dedazo tire toda la sesion"""
         txt = input(prompt).strip()
         if not txt:
             return defecto
@@ -851,7 +706,7 @@ def main():
                 print(f"  Resync: {'OK' if ok else 'FALLO'} — {st}")
             elif opcion == 'I':
                 interactive_mode(proto)
-                plotter.invalidate_pen_cache()   # el jog manual movio Z
+                plotter.invalidate_pen_cache()   
                 plotter._sync_gc_from_steps()
             elif opcion == 'S':
                 proto.print_stats()
@@ -876,14 +731,14 @@ def main():
     except KeyboardInterrupt:
         print("\n  Interrumpido.")
     finally:
-        proto.pen_up()          # dejar la pluma arriba, no clavada
-        proto.motors_off()      # apaga X e Y; Z sigue sujeta (SW-9)
+        proto.pen_up()        
+        proto.motors_off()     
         proto.disconnect()
         print("  Desconectado.")
 
 
 def interactive_mode(proto):
-    """Control manual paso a paso."""
+    """control manual paso a paso"""
     print("\n  ═══ MODO INTERACTIVO ═══")
     print("  W/S = Y+/Y-      A/D = X+/X-")
     print("  U/J = subir/bajar pluma          P = pen toggle")
@@ -894,8 +749,8 @@ def interactive_mode(proto):
 
     vel = 5
     proto.set_speed(vel)
-    n = 50          # pasos por pulsacion en X/Y
-    nz = 20         # pasos por pulsacion en Z (mas fino)
+    n = 50          
+    nz = 20         
 
     while True:
         cmd = input("  > ").strip().upper()

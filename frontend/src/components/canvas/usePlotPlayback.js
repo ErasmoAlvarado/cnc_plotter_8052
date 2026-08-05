@@ -1,21 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-// Reproduccion "en seco" del dibujo, sin maquina.
-//
-// Recorre los mismos trazos que pinta el lienzo a una velocidad plausible y
-// emite las mismas senales que el seguimiento en vivo (cuantos trazos van y
-// donde esta el cabezal). Sirve para dos cosas reales:
-//   - ver el orden de trazado antes de gastar tinta y papel,
-//   - probar la interfaz sin nada conectado.
+// simula el dibujo sin maquina, sirve para ver el orden antes de gastar papel
 export default function usePlotPlayback(paths, { speedMmPerSec = 45 } = {}) {
   const [playing, setPlaying] = useState(false)
   const [state, setState] = useState({ index: 0, head: null })
   const rafRef = useRef(0)
 
-  // Los trazos se aplanan a segmentos rectos con su longitud: recorrer por
-  // distancia (y no por numero de puntos) hace que la velocidad sea constante
-  // en mm/s, como en la maquina real, en vez de acelerarse en los arcos —
-  // que traen decenas de puntos muy juntos.
+  // recorrer por distancia y no por cantidad de puntos mantiene la velocidad constante
   const segments = useMemo(() => {
     const segs = []
     for (let i = 0; i < paths.length; i += 1) {
@@ -44,9 +35,7 @@ export default function usePlotPlayback(paths, { speedMmPerSec = 45 } = {}) {
 
     let travelled = 0
     let last = performance.now()
-    // Cursor que solo avanza. Un fichero grande puede tener decenas de miles de
-    // segmentos: buscarlos desde el principio en cada frame costaria mas que
-    // dibujar.
+    // cursor que solo avanza, buscar desde el principio en cada frame saldria caro
     let cursor = 0
     let accBefore = 0
 
@@ -87,7 +76,7 @@ export default function usePlotPlayback(paths, { speedMmPerSec = 45 } = {}) {
     rafRef.current = requestAnimationFrame(step)
   }, [segments, speedMmPerSec, paths.length])
 
-  // Un G-code nuevo invalida la reproduccion del anterior.
+  // un gcode nuevo invalida la reproduccion anterior
   useEffect(() => stop, [stop])
   useEffect(() => {
     stop()

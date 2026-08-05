@@ -5,15 +5,15 @@ import Toggle from '../ui/Toggle.jsx'
 import Banner from '../ui/Banner.jsx'
 import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 
-// Sentido fisico del porta-pluma.
+// sentido fisico del porta-pluma.
 //
-// Aparece en dos sitios (paso 3 del wizard y hoja avanzada) a proposito: es un
-// ajuste tecnico, pero tambien un paso de la calibracion de la pluma, y obligar
-// a recordar en cual de los dos vive seria peor que repetirlo.
+// aparece en 2 lados (paso 3 del wizard y hoja avanzada) a proposito: es
+// un ajuste tecnico pero tambien un paso de la calibracion de la pluma, y
+// obligar a acordarse en cual de los 2 vive seria peor que repetirlo.
 //
-// Cuando el firmware no lo soporta NO se deja un toggle apagado: un control
-// desactivado sin explicacion se lee como un fallo de la aplicacion. Se explica
-// que hace falta y por que.
+// si el firmware no lo soporta no dejamos un toggle apagado sin mas, un
+// control disabled sin explicar se lee como que la app esta rota. mejor
+// explicar que hace falta y por que
 export default function PenHolderSection({ compact = false }) {
   const { status, canOperate, runAction, refreshConfig } = useStatus()
   const [pending, setPending] = useState(null)

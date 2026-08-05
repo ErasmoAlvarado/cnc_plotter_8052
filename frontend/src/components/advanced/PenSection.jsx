@@ -8,12 +8,12 @@ import DisabledHint from '../ui/DisabledHint.jsx'
 import PenHolderSection from './PenHolderSection.jsx'
 import PenTuner from '../pen/PenTuner.jsx'
 
-// Ajustes del eje Z que no son parte del uso diario.
+// ajustes de Z que no son del uso diario.
 //
-// Apagar Z esta aqui y no en el dashboard a proposito: es la unica accion de
-// toda la app que puede estropear la calibracion sin que se note en pantalla
-// —la pluma se cae sola por gravedad— asi que confirma antes y deja un aviso
-// persistente en la cabecera hasta que se vuelve a fijar el cero.
+// apagar Z va aca y no en el dashboard a proposito, es la unica accion de
+// toda la app que puede arruinar la calibracion sin que se note en
+// pantalla (la pluma se cae sola por gravedad), por eso confirma antes y
+// deja un aviso pegado en la cabecera hasta que se vuelve a fijar el cero
 export default function PenSection() {
   const { canOperate, runAction, setZEnergized, reason } = useStatus()
   const [confirmOff, setConfirmOff] = useState(false)
@@ -32,9 +32,9 @@ export default function PenSection() {
 
         <hr className="divider" />
 
-        {/* El mismo control que abre el rail y que monta el paso 3 del
-            asistente. Esta aqui porque es donde se busca "todo lo de la
-            pluma", no porque sea un ajuste distinto. */}
+        {/* mismo control que abre el rail y que monta el paso 3 del
+            wizard. esta aca porque es donde se busca "todo lo de la
+            pluma", no porque sea un ajuste distinto */}
         <h3 className="section-title">Altura y presión</h3>
         <PenTuner />
 

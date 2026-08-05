@@ -3,24 +3,11 @@ import { projection, viewport } from '../../coords.js'
 import PlotHead from './PlotHead.jsx'
 import useTrailPath from './useTrailPath.js'
 
-// Lienzo del dibujo. No sabe nada del backend ni del WebSocket: recibe los
-// trazos, cuantos van completados y donde esta el cabezal, y pinta.
+// canvas del dibujo, no sabe nada del backend ni del websocket
 //
-// Geometria: la relacion entre los milimetros de la maquina y el SVG la
-// decide coords.js, no este fichero. Es lo que permite que el origen se pinte
-// en la esquina que el usuario tiene delante (arriba a la izquierda en esta
-// maquina) sin que ningun componente calcule su propio `maxY - y`. El viewBox
-// va en milimetros, de forma que un G-code de 40 mm y uno de 200 mm se ven
-// igual de grandes en pantalla.
+// la geometria la resuelve coords.js, no aca
 //
-// Rendimiento: el backend manda hasta 5000 trazos (MAX_PREVIEW_PATHS) y el
-// WebSocket avisa cinco veces por segundo. Por eso:
-//   - el `d` de cada trazo se calcula UNA vez y solo se reparte en cuatro
-//     capas segun el progreso (concatenar cadenas ya hechas, sin volver a
-//     formatear miles de numeros en cada mensaje),
-//   - la estela se acumula incrementalmente en un solo <path> (useTrailPath),
-//   - el cabezal vive en su propio componente memoizado (PlotHead), porque
-//     su interpolacion repinta a 60 fps y arrastraba consigo todo lo demas.
+// presupuesto de rendimiento: hasta 5000 trazos, mensajes 5 veces por segundo
 function PlotCanvas({
   paths = [],
   workArea,
@@ -45,8 +32,7 @@ function PlotCanvas({
   )
   const { maxDim, viewBox } = useMemo(() => viewport({ maxX, maxY }), [maxX, maxY])
 
-  // Paso 1: el `d` de cada trazo, calculado una sola vez. Depende del dibujo
-  // y de la proyeccion, NO del progreso.
+  // paso 1: el `d` de cada trazo, una sola vez, no depende del progreso
   const parts = useMemo(
     () =>
       paths.map((p) => {
@@ -61,8 +47,7 @@ function PlotCanvas({
     [paths, project],
   )
 
-  // Paso 2: repartir en cuatro capas (pendiente/completado x dibujo/rapido).
-  // Esto si cambia con cada mensaje de progreso, pero ya solo concatena.
+  // paso 2: repartir en 4 capas, cambia cada mensaje pero solo concatena
   const { pendingDraw, pendingRapid, doneDraw, doneRapid } = useMemo(() => {
     const acc = { pendingDraw: '', pendingRapid: '', doneDraw: '', doneRapid: '' }
     for (let i = 0; i < parts.length; i += 1) {
@@ -86,9 +71,7 @@ function PlotCanvas({
     return lines
   }, [showGrid, maxX, maxY, maxDim])
 
-  // Radio en unidades del viewBox (o sea, en mm): al ser proporcional a
-  // maxDim, el cabezal se ve del mismo tamano en pantalla trabaje la maquina
-  // en 40 mm o en 200 mm.
+  // proporcional a maxDim, el cabezal se ve igual de grande en cualquier area
   const headR = maxDim * 0.011
 
   return (
@@ -99,8 +82,7 @@ function PlotCanvas({
       role="img"
       aria-label="Vista del dibujo y posición de la máquina"
     >
-      {/* El papel: el area util de la maquina. Va debajo de todo, porque es la
-          superficie sobre la que ocurre el resto. */}
+      {/* el papel, area util de la maquina. va debajo de todo */}
       <rect className="plot-canvas__paper" x={0} y={0} width={maxX} height={maxY} />
 
       {gridLines.map(([dir, v]) =>
@@ -111,8 +93,7 @@ function PlotCanvas({
         ),
       )}
 
-      {/* Origen (0,0): la esquina desde la que se mide todo. Cual de las
-          cuatro sea lo decide coords.js a partir de invert_x/invert_y. */}
+      {/* que esquina es el origen lo decide coords.js segun invert_x/invert_y */}
       <circle
         className="plot-canvas__origin"
         cx={project.origin.cx}
@@ -138,8 +119,7 @@ function PlotCanvas({
         />
       )}
 
-      {/* El dibujo se sale del area: se remarca el limite en rojo. El aviso
-          escrito lo pone el panel del rail; esto dice DONDE se sale. */}
+      {/* marca el borde en rojo, el texto del aviso va en el panel del rail */}
       {!fits && (
         <rect className="plot-canvas__overflow" x={0} y={0} width={maxX} height={maxY} />
       )}

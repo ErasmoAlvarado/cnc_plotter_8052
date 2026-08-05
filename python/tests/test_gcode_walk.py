@@ -1,11 +1,7 @@
-"""Tests del interprete unico de G-code.
-
-El test importante de todo este refactor es
-`test_lo_que_se_ejecuta_es_lo_que_se_valida`: antes habia tres interpretes
-distintos (ejecucion, limites y preview) y ya habian divergido, asi que el
-limite blando validaba una geometria que no era la que se dibujaba. Si alguien
-vuelve a meter un cuarto camino, ese test se cae.
-"""
+"""tests del interprete unico de g-code. el test que mas importa aca es
+test_lo_que_se_ejecuta_es_lo_que_se_valida: si alguien mete un cuarto
+camino de interpretacion (aparte de ejecucion/limites/preview) este test
+se cae, es la garantia de que el limite blando valida lo que se dibuja"""
 
 import pytest
 
@@ -17,7 +13,7 @@ from gcode_walk import (ArcEvent, DwellEvent, MoveEvent, PenEvent, bounds_of,
 
 
 def geometria(eventos):
-    """Todos los puntos que toca el recorrido, en orden."""
+    """todos los puntos que toca el recorrido, en orden"""
     puntos = []
     for ev in eventos:
         if isinstance(ev, MoveEvent):
@@ -33,7 +29,7 @@ def caja(puntos):
     return Bounds(min(xs), max(xs), min(ys), max(ys))
 
 
-# ─── lo esencial del parser, que no debe haber cambiado ──────────────
+# lo esencial del parser
 
 def test_g90_absoluto_y_g91_relativo():
     abs_ = geometria(walk(['G90', 'G0 X10 Y10', 'G0 X10 Y10']))
@@ -43,8 +39,7 @@ def test_g90_absoluto_y_g91_relativo():
 
 
 def test_umbral_de_pluma_configurable():
-    """[SW-11] Un fichero con Z0 = dibujar y Z5 = levantar tiene que
-    funcionar; con el 'z < 0' de la v1 salia en blanco."""
+    """Z0=dibujar y Z5=levantar tiene que andar, no un 'z < 0' fijo"""
     lineas = ['G90', 'G1 X10 Z0', 'G1 X20 Z5']
     tipos = [ev.draw for ev in walk(lineas, z_pen_down_threshold=0.0)
              if isinstance(ev, MoveEvent)]
@@ -52,15 +47,13 @@ def test_umbral_de_pluma_configurable():
 
 
 def test_m3_baja_la_pluma_antes_del_movimiento_de_su_linea():
-    """[SW-42] El estado de pluma de la linea manda sobre su propio trazo."""
     eventos = list(walk(['G90', 'M3 G1 X10']))
     assert isinstance(eventos[0], PenEvent) and eventos[0].down
     assert isinstance(eventos[1], MoveEvent) and eventos[1].draw
 
 
 def test_g0_no_dibuja_nunca_y_deja_la_pluma_arriba():
-    """[SW-40] Un G0 con Z en la misma linea mueve primero y aplica la Z
-    despues; el trazo del rapido nunca dibuja."""
+    """G0 con Z en la misma linea mueve primero, aplica la Z despues"""
     eventos = list(walk(['G90', 'M3', 'G0 X10 Y10 Z-1']))
     movs = [e for e in eventos if isinstance(e, MoveEvent)]
     assert movs[0].draw is False
@@ -68,14 +61,13 @@ def test_g0_no_dibuja_nunca_y_deja_la_pluma_arriba():
 
 
 def test_g0_con_solo_z_no_genera_movimiento():
-    """Un 'G0 Z-1' suelto es bajar la pluma, no un viaje."""
+    """un G0 Z-1 solo es bajar la pluma, no un viaje"""
     eventos = list(walk(['G90', 'G0 Z-1']))
     assert not [e for e in eventos if isinstance(e, MoveEvent)]
     assert eventos == [PenEvent(1, True)]
 
 
 def test_arco_respeta_el_estado_de_pluma():
-    """[SW-41] Antes cualquier G2 dibujaba aunque la pluma estuviera arriba."""
     arriba = [e for e in walk(['G90', 'G0 X10', 'G2 X0 Y0 I-5 J0'])
               if isinstance(e, ArcEvent)]
     abajo = [e for e in walk(['G90', 'G0 X10', 'M3', 'G2 X0 Y0 I-5 J0'])
@@ -91,15 +83,15 @@ def test_arco_termina_exactamente_en_el_destino():
 
 
 def test_arco_con_ij_incoherente_cae_a_recta():
-    """[SW-47] I/J que no cuadran con el destino dibujaban una espiral."""
+    """I/J que no cuadran con el destino dibujaban una espiral fantasma"""
     ev = [e for e in walk(['G90', 'G0 X0 Y0', 'G2 X50 Y0 I1 J0'])
           if isinstance(e, ArcEvent)][0]
     assert ev.points == ((50.0, 0.0),)
 
 
 def test_g28_y_m30_viajan_al_origen():
-    """Divergencia corregida: los interpretes de limites y de preview se
-    saltaban este viaje, pero el carro lo hace y puede chocar."""
+    """el carro viaja de verdad hasta el origen y puede chocar, por eso
+    cuenta para la caja delimitadora"""
     assert geometria(walk(['G90', 'G0 X20 Y20', 'G28'])) == [(20, 20), (0, 0)]
     assert geometria(walk(['G90', 'G0 X20 Y20', 'M30'])) == [(20, 20), (0, 0)]
 
@@ -115,13 +107,13 @@ def test_las_lineas_vacias_y_los_comentarios_no_cuentan():
 
 
 def test_cada_evento_lleva_su_indice_de_linea():
-    """El frontend empareja el 'line' del preview con el del WebSocket para
-    pintar en vivo lo ya dibujado: si se desalinean, se pinta mal."""
+    """el frontend empareja el 'line' del preview con el del websocket
+    para pintar en vivo lo ya dibujado"""
     lineas = ['G90', '', '; nada', 'G0 X1', 'G1 X2']
     assert [e.line for e in walk(lineas) if isinstance(e, MoveEvent)] == [3, 4]
 
 
-# ─── la garantia central del refactor ────────────────────────────────
+# la garantia central del refactor
 
 def _plotter_simulado(**kwargs):
     proto = CNCProtocol(simulate=True)
@@ -148,11 +140,9 @@ GCODE = [
 
 
 def test_lo_que_se_ejecuta_es_lo_que_se_valida():
-    """La caja que comprueba el limite blando es la geometria REAL.
-
-    Se ejecuta el G-code contra un plotter simulado registrando cada
-    coordenada por la que pasa de verdad, y se compara con lo que dice
-    bounds_of() —que es lo que usa el pre-vuelo de /api/run—."""
+    """corre el g-code contra un plotter simulado, registra cada coordenada
+    por la que pasa de verdad, y lo compara contra bounds_of() (lo mismo
+    que usa el pre-vuelo de /api/run)"""
     pl = _plotter_simulado()
     visitados = []
     line_to, rapid_to = pl.line_to, pl.rapid_to
@@ -173,26 +163,25 @@ def test_lo_que_se_ejecuta_es_lo_que_se_valida():
 
 
 def test_el_preview_recorre_la_misma_geometria_que_la_ejecucion():
-    """El preview subsamplea los arcos para no mandar megabytes, pero la
-    geometria de la que sale tiene que ser la misma."""
+    """el preview subsamplea los arcos pero la geometria de fondo tiene
+    que ser la misma"""
     pl = _plotter_simulado()
     puntos = geometria(walk(GCODE, chord_tol=pl.chord_tol))
     assert caja(puntos) == bounds_of(GCODE, chord_tol=pl.chord_tol)
 
 
 def test_los_limites_ven_los_rapidos_no_solo_los_trazos():
-    """El carro viaja en los rapidos igual que dibujando, asi que un rapido
-    fuera del area choca exactamente igual."""
+    """el carro viaja en los rapidos igual q dibujando, choca igual"""
     b = bounds_of(['G90', 'M3', 'G1 X10 Y10', 'M5', 'G0 X500 Y0'])
     assert b.max_x == 500.0
 
 
-# ─── transformaciones sobre el recorrido ─────────────────────────────
+# transformaciones sobre el recorrido
 
 def test_el_espejo_invierte_la_curvatura_del_arco():
-    """El fallo clasico de voltear Y es olvidar que G2 pasa a ser G3. Aqui
-    no puede pasar porque el arco se descompone ANTES de transformarse, y
-    este test lo comprueba midiendo de que lado queda la flecha del arco."""
+    """voltear Y a mano en texto obligaria a acordarse de que G2 pasa a
+    G3, aca no hace falta pq el arco se descompone antes de transformar -
+    este test mide de que lado queda la flecha del arco"""
     lineas = ['G90', 'G0 X10 Y10', 'M3', 'G2 X30 Y30 I10 J10']
     b = bounds_of(lineas)
 
@@ -230,8 +219,8 @@ def test_la_transformacion_no_altera_los_indices_de_linea():
 
 
 def test_los_relativos_se_resuelven_antes_de_transformar():
-    """El estado del interprete va SIN transformar: si se transformase la
-    posicion acumulada, cada G91 arrastraria la escala otra vez."""
+    """el estado interno va sin transformar, si no cada G91 arrastraria
+    la escala de nuevo"""
     lineas = ['G91', 'G0 X10 Y0', 'G0 X10 Y0', 'G0 X10 Y0']
     t = build(Bounds(0, 30, 0, 0), 80, 80, fit=True)
     xs = [p[0] for p in geometria(walk(lineas, transform=t))]

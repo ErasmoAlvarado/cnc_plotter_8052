@@ -2,16 +2,15 @@ import { motion } from 'motion/react'
 import { spring, useMotionPrefs } from '../../motion.js'
 import Icon from '../ui/Icon.jsx'
 
-// Eje Z en una columna propia, fuera de la cruz de X/Y.
+// eje Z en su propia columna, afuera de la cruz X/Y.
 //
-// Habla en PASOS, no en milimetros, y por eso no comparte el valor del chip de
-// X/Y. Antes si lo compartia: con el chip de 10 mm y steps_per_mm_z = 100 se
-// pedian 1000 pasos, el backend recortaba en silencio al maximo de 255 y la
-// etiqueta seguia diciendo "un paso". El recorrido util de este eje son unas
-// decenas de pasos en total, asi que el mm no es la unidad con la que se
-// piensa aqui.
+// habla en pasos y no en mm, por eso no comparte el chip de X/Y. antes si
+// lo compartia: con el chip de 10mm y steps_per_mm_z=100 se pedian 1000
+// pasos, el backend recortaba en silencio al maximo de 255 y la etiqueta
+// seguia diciendo "un paso". el recorrido util de este eje son unas
+// decenas de pasos en total, el mm no es la unidad que sirve aca.
 //
-// El backend limita cada jog a 255 pasos y avisa si Z_POS se saldria de 0-255.
+// el backend limita cada jog a 255 pasos y avisa si Z_POS se sale de 0-255
 const PASOS = [
   { steps: 5, icon: 'chevron-up', label: 'Subir la pluma 5 pasos' },
   { steps: 1, icon: 'plus', label: 'Subir la pluma 1 paso' },

@@ -1,28 +1,5 @@
 """
-soft_limits.py — Limites blandos del area util.
-
-La maquina NO tiene finales de carrera. Si un dibujo se sale del area, el
-carro llega al tope mecanico, el motor sigue pulsando, se pierden pasos y la
-calibracion se va al garete: a partir de ese momento el software cree estar en
-un sitio y la maquina esta en otro. Recuperarse de eso es rehacer la
-calibracion entera.
-
-Por eso los limites son lo unico que puede parar un trabajo antes de empezar.
-
-DOS NIVELES, a proposito:
-
-  1. check_bounds() sobre la caja delimitadora, ANTES de mover nada. Es el que
-     de verdad protege: da un mensaje accionable ("el dibujo mide 120 mm y el
-     area son 80") y no deja salir ni un byte por el puerto serie.
-
-  2. check_point() en cada movimiento, como ultima red. Si el pre-vuelo paso,
-     este no deberia dispararse nunca — salvo que el usuario haya movido el
-     origen a mano entre medias, que es justo el caso que el pre-vuelo no
-     puede prever.
-
-La tolerancia de 0.5 mm existe desde la v1: el redondeo mm->pasos y el ultimo
-punto de un arco pueden dejar decimas por fuera sin que eso signifique nada
-mecanicamente.
+Limites de la area util. la maquina no tiene finales de carrera.
 """
 
 from dataclasses import dataclass
@@ -32,12 +9,11 @@ TOLERANCE_MM = 0.5
 
 @dataclass(frozen=True)
 class Violation:
-    """Que se salio, cuanto, y de que limite. Estructurado y no un string
-    para que la API pueda devolverselo al frontend y este pinte el aviso sin
-    tener que parsear texto."""
-    axis: str           # 'x' | 'y'
-    value: float        # coordenada pedida, en mm
-    limit: float        # limite superado, en mm (0 o max_*)
+    """que se salio, cuanto, y de que limite.
+    estructurado para que el frontend no tenga que parsear un string"""
+    axis: str          
+    value: float       
+    limit: float        
 
     @property
     def excess_mm(self) -> float:
@@ -56,7 +32,7 @@ class Violation:
 
 
 class LimitExceeded(Exception):
-    """Se pidio un movimiento fuera del area util."""
+    """movimiento pedido fuera del area util"""
 
     def __init__(self, violation: Violation):
         super().__init__(violation.message())
@@ -64,7 +40,7 @@ class LimitExceeded(Exception):
 
 
 def check_point(x_mm, y_mm, max_x, max_y, tolerance=TOLERANCE_MM):
-    """Devuelve la primera Violation encontrada, o None si el punto cabe."""
+    """primera Violation que encuentra, o None si el punto entra"""
     if x_mm < -tolerance:
         return Violation('x', x_mm, 0.0)
     if x_mm > max_x + tolerance:
@@ -77,10 +53,8 @@ def check_point(x_mm, y_mm, max_x, max_y, tolerance=TOLERANCE_MM):
 
 
 def check_bounds(bounds, max_x, max_y, tolerance=TOLERANCE_MM):
-    """Igual que check_point pero sobre una caja completa (gcode_transform.Bounds).
-
-    Se comprueban las esquinas extremas, que son las unicas que pueden violar
-    un rectangulo alineado con los ejes."""
+    """como check_point pero para una caja completa, solo hace falta mirar
+    las esquinas extremas en un rectangulo alineado a los ejes"""
     if bounds.min_x < -tolerance:
         return Violation('x', bounds.min_x, 0.0)
     if bounds.max_x > max_x + tolerance:
@@ -97,8 +71,8 @@ def fits(bounds, max_x, max_y, tolerance=TOLERANCE_MM) -> bool:
 
 
 def remaining_mm(position_mm, direction, max_mm, tolerance=TOLERANCE_MM) -> float:
-    """Cuanto queda hasta el tope en ese sentido. Lo usa /api/jog para poder
-    decir "solo quedan 3.2 mm" en vez de un 400 pelado."""
+    """cuanto queda hasta el tope en ese sentido, lo usa /api/jog para
+    avisar "quedan 3.2mm" en vez de tirar un 400 sin mas info"""
     if direction > 0:
         return max(0.0, max_mm + tolerance - position_mm)
     return max(0.0, position_mm + tolerance)

@@ -6,14 +6,11 @@ import Icon from '../components/ui/Icon.jsx'
 import Banner from '../components/ui/Banner.jsx'
 import Button from '../components/ui/Button.jsx'
 
-// Franja de pie: los parametros con los que la maquina esta trabajando ahora
-// mismo, y los avisos.
+// franja de pie con los parametros de la maquina y los avisos
 //
-// Antes los avisos eran tarjetas flotantes colgando de la cabecera, que empujaban
-// el contenido hacia abajo cada vez que aparecia uno. Aca ocupan una linea fija
-// que no mueve nada, y se despliegan al pulsarlas. El unico que no se puede
-// ignorar — el eje Z sin energizar, con la pluma cayendose por gravedad — abre
-// el panel por su cuenta.
+// ocupa una linea fija que no empuja el contenido, se despliega al apretarla
+//
+// el unico que no se puede ignorar, Z sin energizar, abre el panel solo
 export default function StatusBar({ onFixZ }) {
   const { status, banner, setBanner, commLost, connected, zEnergized } = useStatus()
   const { t } = useMotionPrefs()
@@ -25,8 +22,7 @@ export default function StatusBar({ onFixZ }) {
   const notices = commLost || zLoose || warnings.length > 0 || !!banner
   const severity = commLost || banner?.type === 'error' ? 'error' : zLoose || warnings.length ? 'warn' : 'info'
 
-  // El aviso de Z manda: mientras esta, el panel se queda abierto sin que nadie
-  // lo pida.
+  // el aviso de Z manda, mientras esta activo el panel queda abierto solo
   const open = notices && (manuallyOpen || zLoose || commLost)
 
   const summary = commLost
@@ -44,10 +40,7 @@ export default function StatusBar({ onFixZ }) {
     <>
       <AnimatePresence>
         {open && (
-          // No usa `fadeUp`: los avisos salen del pie y vuelven a el, asi que
-          // entran y salen por abajo. La asimetria de fadeUp (entra desde
-          // abajo, sale hacia arriba) los haria escapar por encima de la franja
-          // que los contiene.
+          // no uso fadeUp, la asimetria haria escapar el aviso por arriba de la franja
           <motion.div
             className="notices"
             initial={{ opacity: 0, y: 8 }}

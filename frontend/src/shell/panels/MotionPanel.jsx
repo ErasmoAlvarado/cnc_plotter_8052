@@ -11,12 +11,10 @@ import ZControl from '../../components/dashboard/ZControl.jsx'
 import StepChips from '../../components/dashboard/StepChips.jsx'
 import SecondaryActions from '../../components/dashboard/SecondaryActions.jsx'
 
-// Mover los ejes. Es lo primero que necesita cualquiera que se acerca a la
-// maquina, asi que vive en el rail y no detras de un menu.
+// mover los ejes, va en el rail y no atras de un menu
 //
-// Cuando no se puede operar, el bloque no desaparece: se atenua y explica por
-// que. El motivo lo da reason() del contexto, no este componente — asi ninguna
-// vista se olvida de comprobar comm_lost.
+// cuando no se puede operar el bloque se atenua y explica por que, el
+// motivo lo da reason del contexto para que ninguna vista olvide comm_lost
 export default function MotionPanel({ onConnect }) {
   const { canOperate, connected, runAction, reason, status, busy } = useStatus()
   const [step, setStep] = useState(1)
@@ -31,8 +29,7 @@ export default function MotionPanel({ onConnect }) {
     [status?.invert_x, status?.invert_y],
   )
 
-  // Que flechas sacarian el cabezal del area. Se calcula con la posicion real
-  // reportada por el backend, no con la interpolada del lienzo.
+  // que flechas sacarian el cabezal del area, con la posicion real del backend
   const blocked = useMemo(
     () =>
       blockedJogs({
@@ -46,17 +43,14 @@ export default function MotionPanel({ onConnect }) {
      status?.enforce_soft_limits, step, invert],
   )
 
-  // El D-pad habla en direcciones que ve el usuario; coords.jogVector las
-  // traduce a eje y sentido segun como este montada la maquina.
+  // coords.jogVector traduce la direccion que ve el usuario a eje y sentido
   function handleJog(direction) {
     const v = jogVector(direction, invert)
     if (!v) return
     runAction(() => api.jog(v.axis, v.direction, Number(step))).catch(() => {})
   }
 
-  // Z va en PASOS y por su propio endpoint. Antes compartia el valor en mm del
-  // D-pad: con el chip de 10 mm y steps_per_mm_z=100 el backend recortaba en
-  // silencio a 255 pasos, mientras la etiqueta decia "un paso".
+  // Z va en pasos por su propio endpoint, no en mm como el dpad
   function handleZ(steps) {
     runAction(() => api.penJog(steps)).catch(() => {})
   }
@@ -90,9 +84,7 @@ export default function MotionPanel({ onConnect }) {
         <SecondaryActions disabled={!canOperate || busy} />
       </DisabledHint>
 
-      {/* Al conectar, este boton no desaparece de golpe: se recoge. Es el unico
-          sitio del rail donde algo se va del todo, y sin la altura animada el
-          resto del panel pega un salto hacia arriba. */}
+      {/* se recoge en vez de desaparecer de golpe, sin animar la altura pega un salto */}
       <AnimatePresence initial={false}>
         {!connected && (
           <motion.div {...collapse} transition={t(spring.smooth)} style={{ overflow: 'hidden' }}>

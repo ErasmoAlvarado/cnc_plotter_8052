@@ -7,11 +7,11 @@ import Button from '../ui/Button.jsx'
 
 const FINE_STEPS = [-10, -1, 1, 10]
 
-// Subir/Bajar, mas un ajuste fino que se despliega en el sitio.
+// subir/bajar, mas un ajuste fino que se despliega ahi mismo.
 //
-// Subir y bajar son ABSOLUTOS en el firmware (van a Z_POS=0 y Z_POS=PEN_N), asi
-// que repetirlos siempre es seguro: no hace falta protegerlos contra el doble
-// clic ni recordar en que estado estaba la pluma.
+// subir y bajar son absolutos en el firmware (van a Z_POS=0 y Z_POS=PEN_N),
+// repetirlos siempre es seguro, no hace falta protegerlos de doble click ni
+// acordarse en que estado estaba la pluma
 export default function PenControl({ disabled }) {
   const { penDown, runAction } = useStatus()
   const [fine, setFine] = useState(false)
@@ -22,9 +22,9 @@ export default function PenControl({ disabled }) {
   return (
     <div className="pen-control">
       <div className="pen-control__main">
-        {/* El resaltado marca en que estado ESTA la pluma, no cual es la accion
-            recomendada — por eso es el tono tenue del acento y no un boton
-            primario lleno. */}
+        {/* el resaltado marca en que estado esta la pluma, no cual es la
+            accion recomendada, por eso el tono tenue y no un boton
+            primario lleno */}
         <Button
           variant="secondary"
           className={penDown ? '' : 'btn--active'}

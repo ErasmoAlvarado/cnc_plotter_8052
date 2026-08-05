@@ -6,13 +6,9 @@ import Banner from '../ui/Banner.jsx'
 import PenTuner from '../pen/PenTuner.jsx'
 import PenHolderSection from '../advanced/PenHolderSection.jsx'
 
-// Paso 3: pluma y eje Z, en el orden que pide el backend
-// (invertir si hace falta -> ajustar altura y presion -> ciclo de prueba).
+// paso 3: invertir si hace falta, ajustar altura y presion, ciclo de prueba
 //
-// El ajuste en si lo hace PenTuner, que es el mismo control que se abre desde
-// el rail: ajustar la pluma es exactamente lo mismo dentro y fuera del
-// asistente, y tenerlo dos veces escrito garantizaba que uno de los dos se
-// quedara atras.
+// el ajuste lo hace PenTuner, el mismo control del rail, escribirlo dos veces se desactualiza
 export default function StepPen({ onDone, done }) {
   const { canOperate, busy, runAction, setZEnergized } = useStatus()
   const [cycle, setCycle] = useState(null)
@@ -21,11 +17,7 @@ export default function StepPen({ onDone, done }) {
     try {
       const result = await runAction(api.penTestCycle)
       setCycle(result)
-      // Fijar el cero y mover el eje vuelve a energizarlo: el aviso naranja de
-      // "Z sin energizar" deja de tener sentido. Solo en el camino de exito —
-      // antes se marcaba tambien cuando la peticion fallaba, y se borraba el
-      // aviso mientras el eje seguia suelto de verdad, que es justo lo que el
-      // aviso existe para impedir.
+      // solo en el camino de exito, antes se marcaba tambien si la peticion fallaba
       setZEnergized(true)
       onDone()
     } catch {

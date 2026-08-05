@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 const KEY = 'cnc.theme'
 
-// Tema: 'system' (lo que diga el SO) | 'light' | 'dark'.
+// tema: 'system' (lo que diga el so) | 'light' | 'dark'.
 //
-// El atributo data-theme del <html> solo fija 'color-scheme'; la paleta entera
-// la resuelve light-dark() en tokens.css. Sin atributo manda el SO.
+// el atributo data-theme del <html> solo fija color-scheme, la paleta
+// entera la resuelve light-dark() en tokens.css. sin atributo manda el so
 export function useTheme() {
   const [theme, setThemeState] = useState(() => localStorage.getItem(KEY) ?? 'system')
 
@@ -16,9 +16,9 @@ export function useTheme() {
     localStorage.setItem(KEY, theme)
   }, [theme])
 
-  // El ciclo del boton es de dos posiciones (claro/oscuro) partiendo de lo que
-  // el sistema este mostrando ahora: nadie espera un tercer clic para volver a
-  // "automatico", y quien quiera eso puede cambiar el tema del SO.
+  // el boton cicla entre 2 posiciones (claro/oscuro) partiendo de lo que
+  // muestra el sistema ahora, nadie espera un tercer click para volver a
+  // "automatico" -- el que quiera eso cambia el tema del so directamente
   const toggle = useCallback(() => {
     setThemeState((prev) => {
       if (prev === 'system') {
@@ -29,9 +29,9 @@ export function useTheme() {
     })
   }, [])
 
-  // En modo 'system' hay que ESCUCHAR el cambio del SO, no solo leerlo una vez:
-  // sin esto, cambiar el tema del sistema repinta la app (via la media query de
-  // CSS) pero deja el icono del boton mostrando el tema anterior.
+  // en modo 'system' hay que escuchar el cambio del so, no solo leerlo una
+  // vez -- si no, cambiar el tema del sistema repinta la app (via la media
+  // query css) pero el icono del boton queda mostrando el tema viejo
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches,
   )

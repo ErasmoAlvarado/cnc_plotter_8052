@@ -2,14 +2,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { spring, useMotionPrefs } from '../../motion.js'
 import Icon from './Icon.jsx'
 
-// Cuatro jerarquias, no seis:
-//   primary   -> la accion de la vista (Ejecutar, Conectar). Una sola visible.
-//   secondary -> la piel por defecto de casi todo (Home, Simular, Guardar)
-//   ghost     -> terciaria, sin caja: "ver mas", "cambiar archivo"
-//   danger    -> Detener, apagar Z. Rojo, y nunca la unica opcion de un dialogo.
+// 4 jerarquias nomas: primary, secondary de default, ghost sin caja, danger
 //
-// Los nombres viejos siguen aceptandose para no tener que reescribir los ~40
-// sitios que los pasan; el mapa deja claro cual era cual.
+// los nombres viejos se siguen aceptando para no reescribir ~40 sitios
 const ALIASES = {
   filled: 'primary',
   tinted: 'secondary',
@@ -19,13 +14,8 @@ const ALIASES = {
   'destructive-tinted': 'danger-soft',
 }
 
-// El reparto entre CSS y fisica: el color va por CSS (`transition` en ui.css) y
-// la geometria por resorte. Un cambio de color no se interrumpe a mitad —
-// termina en el color que toca y ya— pero una pulsacion si: quien pulsa dos
-// veces rapido tiene que ver la segunda salir de donde estaba la primera.
-//
-// Por eso `.btn:active { transform: translateY(1px) }` ya no existe en ui.css:
-// motion escribe `transform` en el estilo inline y ganaba siempre.
+// el color va por css, la geometria por spring, un tap interrumpido se
+// reanuda desde donde quedo el anterior
 export default function Button({
   variant = 'secondary',
   size = 'md',
@@ -61,14 +51,12 @@ export default function Button({
       type={type}
       className={classes}
       disabled={isDisabled}
-      // Un boton deshabilitado no responde al gesto. Sin esto motion sigue
-      // hundiendolo al pulsar y el control miente: parece que acepto el clic.
+      // disabled no deberia responder al gesto ni parecer que acepto el click
       whileTap={isDisabled ? undefined : tap()}
       transition={t(spring.snappy)}
       {...rest}
     >
-      {/* El spinner sustituye al icono en el sitio, sin corte: el boton no
-          cambia de ancho y la accion no parece haberse reiniciado. */}
+      {/* el spinner reemplaza al icono en el mismo lugar, el boton no cambia de ancho */}
       <AnimatePresence initial={false} mode="wait">
         {loading ? (
           <motion.span

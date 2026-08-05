@@ -5,16 +5,15 @@ import Button from '../ui/Button.jsx'
 import Tooltip from '../ui/Tooltip.jsx'
 import ConfirmDialog from '../ui/ConfirmDialog.jsx'
 
-// Fila secundaria, separada de los botones de movimiento.
+// fila secundaria, separada de los botones de movimiento.
 //
-// Las etiquetas son cortas porque el rail es estrecho, pero ninguna se queda
-// sin explicar: el tooltip dice la frase completa. Acortar sin tooltip seria
-// cambiar claridad por espacio, y esta app la usa gente que no sabe lo que hace
-// "Home".
+// las etiquetas son cortas porque el rail es angosto, pero el tooltip
+// siempre dice la frase completa -- acortar sin tooltip seria cambiar
+// claridad por espacio y esta app la usa gente que no sabe que hace "Home".
 //
-// "Fijar origen" no mueve nada pero redefine el (0,0) de todo lo que venga
-// despues, asi que pregunta antes: pulsarlo por error deja el dibujo desplazado
-// sin ningun sintoma visible hasta que ya se dibujo encima.
+// "fijar origen" no mueve nada pero redefine el (0,0) de todo lo que
+// venga despues, por eso pregunta antes: si lo apretas por error el
+// dibujo queda desplazado sin ningun sintoma visible hasta que ya dibujaste encima
 export default function SecondaryActions({ disabled }) {
   const { runAction } = useStatus()
   const [confirmOrigin, setConfirmOrigin] = useState(false)

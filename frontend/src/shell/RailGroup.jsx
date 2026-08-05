@@ -3,15 +3,9 @@ import { AnimatePresence, motion } from 'motion/react'
 import { collapse, spring, stagger, useMotionPrefs } from '../motion.js'
 import Icon from '../components/ui/Icon.jsx'
 
-// Grupo colapsable del rail.
+// grupo colapsable, una seccion separada por una linea, no una tarjeta flotante
 //
-// Sustituye a las tarjetas del dashboard. Un grupo no es una superficie propia
-// flotando sobre otra: es una seccion del rail separada por una linea. Cuatro
-// tarjetas de cristal apiladas eran cuatro bordes, cuatro sombras y cuatro
-// halos para decir algo que dice mejor una linea de 1px.
-//
-// Que este colapsado o no se recuerda entre sesiones: quien no usa los patrones
-// de prueba no tiene por que verlos cada vez que abre la app.
+// si esta colapsado se guarda entre sesiones, no todos usan los patrones de prueba
 function usePersistedOpen(id, fallback) {
   const key = `cnc.rail.${id}`
   const [open, setOpen] = useState(() => {
@@ -32,9 +26,7 @@ export default function RailGroup({ id, title, aside, defaultOpen = true, childr
   const { t } = useMotionPrefs()
 
   return (
-    // Las variantes las orquesta Rail: aca solo se declara como se ve cada
-    // estado. El `transition` del grupo no toca al del cuerpo colapsable de
-    // abajo, que trae el suyo propio y por eso no hereda nada.
+    // las variantes las maneja Rail, el cuerpo colapsable trae su propio transition
     <motion.section
       className="rail-group"
       variants={stagger.child}
